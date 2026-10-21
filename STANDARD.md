@@ -1,10 +1,14 @@
 # Cycles Mod Standard — draft 0.1
 
 **Status:** draft, 2026-10-21, not published. Nothing in this document is implemented yet.
+**Authors:** durchgemacht and Claude.
 **Scope:** mods for the Elektron Model:Cycles OS 1.13 that are built from the user's own official file with
 Modded-Cycles' tools. Everything here is read from the code of Modded-Cycles (release 1.56, fork commit `95b63b7`),
 Cycles One-Shot 0.6 and the technical notes both projects keep about the OS. Where a fact was observed but not
 followed through in the OS, it says so. Addresses are virtual addresses of the unpacked MAIN OS (base `0x40000400`).
+
+**Applying it to an existing mod:** [APPLYING.md](APPLYING.md) is the checklist for authors and their AI
+assistants. It produces an inventory, a manifest, the collisions and the deviations of a mod, not a rewrite.
 
 - [0. Why, and what this is not](#0-why-and-what-this-is-not)
 - [1. Terms](#1-terms)
@@ -364,7 +368,7 @@ A record stores the sound's parameters as 16-bit slots at `+28 + 2 · slot`; the
 | 27 | One-Shot | filter mark (since 0.5) |
 | 27 | track-filter | one of its values; clash with One-Shot hidden behind the `sound.record` conflict today |
 | 30–31 | track-filter | Cutoff, Reso (`+88`, `+90`) |
-| 30–31 | lfo-plus | LFO 2 (`+88`–`+91`, David's format) |
+| 30–31 | lfo-plus | LFO 2 (`+88`–`+91`, the format of DavidCaruso's firmware, notes/56) |
 
 ### 5.4 Gestures
 
@@ -635,6 +639,7 @@ conflict), One-Shot's loop/reverse study (k 28 bits: registry).
    window, or the window to move.
 3. **Generate manifests for the existing mods** from their generators: the derived part is already computed there;
    the declared part (gestures, scopes, stock-behaviour changes, tests) is copied from the notes and the cards.
+   Authors can start by hand with [APPLYING.md](APPLYING.md).
 4. **Teach `registry.py` to read manifests** for §6 (saved data) and the gestures, instead of the notes; add the
    number registry file and its check.
 5. **Compute conflicts** and compare with the declared lists; keep only the declared ones that have a reason tools

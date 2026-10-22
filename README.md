@@ -1,9 +1,10 @@
 # Cycles Mod Standard
 
-**Draft 0.2, public.** This page says what the idea is, first in plain words, then with a bit more technical
-detail. The full text with every address, rule and source is in [STANDARD.md](STANDARD.md). Part of it is built:
-[model27](https://github.com/durchgemacht/model27) composes added machines from manifests, tested on a Model:Cycles
-(see [Status and next steps](#status-and-next-steps)).
+**Draft 0.3, public.** This page says what the idea is, first in plain words, then with a bit more technical
+detail. The full text with every address, rule and source is in [STANDARD.md](STANDARD.md). Much of it is built:
+[model27](https://github.com/durchgemacht/model27) composes added machines from manifests, tested on a Model:Cycles,
+and lets them share the screen, the browser and saved sounds and use a fixed list of shortcuts, proven in an emulator
+(see [Status and next steps](#status-and-next-steps)). To port a machine, follow [APPLYING.md](APPLYING.md) §12.
 
 **Authors:** durchgemacht and Claude. **License:** MIT ([LICENSE](LICENSE)).
 
@@ -89,9 +90,11 @@ Some numbers are not the builder's to choose, because they are already written i
   overlap nobody has declared yet.
 
 For these the standard proposes a **registry**: a small file in the repository where a number is assigned once and
-never moved, like MIDI CC numbers. The builder refuses two mods with the same number. For machine numbers there are
+never moved, like MIDI CC numbers. The builder refuses two mods with the same number. For machine numbers there were
 three ways to get there (permanent numbers with placeholders, a translation when sounds are saved and loaded, or
-"projects belong to a build" as today); the draft recommends permanent numbers and leaves the decision open.
+"projects belong to a build" as today). Draft 0.3 takes the third. A track remembers a machine's place in the build,
+so a project from a build with other machines plays other machines, a happy accident. Keep one project per build to
+keep its sounds.
 
 ## Where upstream stands
 
@@ -137,10 +140,11 @@ detours such a place itself; it registers a callback in its manifest and the bui
 |---|---|---|---|
 | `machine` | the machine tables | **table**, builder assigns the slot; 6 added machines fit in the current layout, 14 on the MACHINES page | MACRO, ACID, Syntakt engines, Model-TG's sampler, SAMPLE |
 | `track.post_voldist` | the track chain after Volume + Dist, before pan, level and sends | **chain**, in declared order; a register contract to keep | track filter |
-| `sound.record` | saving and loading a sound | **chain**: every mod's "after save" and "after load" run | Model-TG, track filter, One-Shot (today: three separate hooks, declared as conflicts) |
-| `browser.open` | the PRESET browser opens a file | **chain**, first taker wins | One-Shot (sample files on a SAMPLE track) |
-| `screen.tick` | the screen's redraw, about 30 times a second | **append** | One-Shot (loads samples in the background) |
-| `view.main`, `view.knob` | the main screen and the knob value screen | **chain**, each draws then calls the next | One-Shot |
+| `sound.record` | saving and loading a sound | **chain**: one machine's "around" wrapper behind model27's shortcut layer | Model-TG, track filter, One-Shot (outside model27: three separate hooks, declared as conflicts) |
+| `browser.open` | the PRESET browser opens a file | **by machine**: the machine of the track it loads into | One-Shot (sample files on a SAMPLE track), REF2 |
+| `screen.tick` | the screen's redraw, about 30 times a second | **append**: every machine | One-Shot (loads samples in the background), REF2 |
+| `view.main`, `view.knob` | the main screen and the knob value screen | **by machine**: the selected track's machine draws, or the stock screen | One-Shot, REF2 |
+| `shortcut` | RETRIG held + COLOR, SHAPE, SWEEP or CONTOUR on a machine's tracks | **by machine**, from a fixed list: up to four extra values per machine, saved with the sound | REF2 (Octave) |
 | `menu.track_setup` | the FUNC + TRACK menu | **append** | nobody yet (read for One-Shot's loop/reverse study) |
 | `gesture` | a key combination and its meaning | **exclusive** per combination and scope | track filter, MACRO, Control All Config, stock |
 | `param.sound`, record slots | the spare slots of a sound | **registry** | Model-TG, track filter, LFO-Plus, One-Shot |
@@ -229,21 +233,27 @@ As built in model27 for added machines:
 6. The existing checks run unchanged: byte overlaps, every card alone and in pairs, the registry, each package's
    emulation proof.
 
-All of this runs with Python alone. Still to come: machine numbers from a registry, the callback tables of the other
-extension points, cards generated from manifests. The web flasher will compose in the browser the same way: each
-object comes placed once with its list of fix-ups, the registrar's part as a table per number of machines (planned
-in model27, notes/61; no pre-linked variants per slot).
+All of this runs with Python alone, and the web flasher does the same in the browser, byte for byte. Each object
+comes placed once with its list of fix-ups. The registrar's part comes as a table per number of machines, and the
+shortcut layer and the dispatchers as two more objects placed once (model27 notes/61 and 63; no pre-linked variants
+per slot). Still to come: the registry for sound slots, cards generated from manifests.
 
 ## Status and next steps
 
-**Built** in [model27](https://github.com/durchgemacht/model27), 2026-10-21 and 22: the `machine` extension point
-and the manifest, for added machines. A composer places committed objects and registers them through a runtime,
-with Python alone; SAMPLE (Cycles One-Shot 0.8) and a small reference machine are the first two packages. Proven on
-the OS's own code in an emulator, tested in the digiemu emulator and on a Model:Cycles, SAMPLE alone and with the
-second machine; SAMPLE is offered, tested, in model27's web flasher. The technical record is in model27's notes
+**Built** in [model27](https://github.com/durchgemacht/model27), 2026-10-21 and 22:
+- **the `machine` extension point and the manifest**, for added machines. A composer places committed objects and
+  registers them through a runtime, with Python alone, and the web flasher does the same in the browser. SAMPLE
+  (Cycles One-Shot 0.8) and a small reference machine were the first two packages. This is proven on the OS's own
+  code in an emulator and tested on a Model:Cycles; SAMPLE is offered, tested, in model27's web flasher;
+- **the machine shortcuts, and the dispatchers** for saving sounds, the main and knob screens, the screen's tick and
+  the browser. A second reference machine, REF2, uses all of them next to SAMPLE, and its manifest is the template
+  for porting a machine. This is proven in the emulator, not on the device yet.
+
+The technical record is in model27's notes
 [59](https://github.com/durchgemacht/model27/blob/main/notes/59-level-b-builder.md),
-[60](https://github.com/durchgemacht/model27/blob/main/notes/60-level-b2-relocator-runtime.md) and
-[61](https://github.com/durchgemacht/model27/blob/main/notes/61-level-b3-web-flasher.md).
+[60](https://github.com/durchgemacht/model27/blob/main/notes/60-level-b2-relocator-runtime.md),
+[61](https://github.com/durchgemacht/model27/blob/main/notes/61-level-b3-web-flasher.md) and
+[63](https://github.com/durchgemacht/model27/blob/main/notes/63-level-b4-shortcuts-dispatchers.md).
 
 **Checked for draft 0.1:**
 
@@ -257,11 +267,12 @@ second machine; SAMPLE is offered, tested, in model27's web flasher. The technic
 The path, in order: write the contract and the shared header; port One-Shot onto a shared multi-machine registrar
 as the first proof (done in model27); generate manifests for the existing mods from their generators (two written by
 hand so far); let the registry tool read manifests; compute conflicts and compare with the hand lists (done for
-machines in model27); add the callback tables one point at a time, each proven in emulation like a mod; last, the
-flasher (planned in model27).
+machines in model27); add the callback tables one point at a time, each proven in emulation like a mod (done in
+model27 for the five points SAMPLE uses); last, the flasher (done in model27).
 
-Open decisions: how machine numbers become permanent; the cost threshold; the two unread places in the OS; the stock
-MIDI map; who assigns registry numbers. Decided in 0.2: the web flasher uses a relocator.
+Open decisions: the cost threshold; the two unread places in the OS; the stock MIDI map; who assigns registry
+numbers. Decided in 0.2: the web flasher uses a relocator. Decided in 0.3: machine numbers stay the build's
+("projects belong to a build"); shortcuts are a fixed list; the shared points go by machine.
 
 ## Read more
 
@@ -269,4 +280,6 @@ MIDI map; who assigns registry numbers. Decided in 0.2: the web flasher uses a r
 - Modded-Cycles' notes 18 (adding a machine), 43 (MACRO), 47 (track filter), 49 and 52 (checking mods against each
   other, the register of free space), 23 and 25 (load measurements and the governor).
 - Cycles One-Shot's TECHNICAL.md, sections 3 to 6 (the machine mechanics, the audio side, sounds and records).
-- model27's notes 59 to 61: the builder as built, its proofs, and the web flasher's plan.
+- model27's notes 59 to 64: the builder as built, its proofs, the web flasher, the shortcuts and dispatchers, and
+  what users should know about projects and machines.
+- [APPLYING.md](APPLYING.md): inventory a mod (sections 1 to 11), port a machine to model27's builder (section 12).

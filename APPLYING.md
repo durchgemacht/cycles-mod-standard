@@ -1,15 +1,21 @@
 # Applying the standard to your mod — a checklist
 
-**Status:** draft 0.2, 2026-10-22, companion to [STANDARD.md](STANDARD.md). Written for the author of an existing
-Model:Cycles mod and the AI assistant they work with.
+**Status:** draft 0.3, 2026-10-22, companion to [STANDARD.md](STANDARD.md). Written for the author of an existing
+Model:Cycles mod and the AI assistant they work with. Sections 1 to 11 inventory a mod; section 12 ports a machine to
+model27's builder, step by step, with REF2 as the template.
 **Authors:** durchgemacht and Claude. **License:** MIT ([LICENSE](LICENSE)).
 
-**What this produces:** an *inventory* of what the mod touches, a *manifest*, a list of *collisions* with other
-mods and the registry, and a list of *deviations* from the machine contract. **It does not produce a rewrite.** Part of
-the target exists: [model27](https://github.com/durchgemacht/model27)'s composer reads manifests and registers added
-machines (STANDARD.md §8). There is still no shared header, no registry file and no dispatcher tables. Do not let
-anyone, human or AI, invent those for your mod alone; three mods would get three different inventions, which is the
-problem the standard is meant to end. The reference implementation is model27's (STANDARD.md §8, §9).
+**What sections 1 to 11 produce:** an *inventory* of what the mod touches, a *manifest*, a list of *collisions* with
+other mods and the registry, and a list of *deviations* from the machine contract. **They do not produce a rewrite.**
+Much of the target exists:
+- [model27](https://github.com/durchgemacht/model27)'s composer reads manifests and registers added machines
+  (STANDARD.md §8);
+- it adds the machine shortcuts and the dispatchers for the points SAMPLE uses (STANDARD.md §3.3);
+- its web flasher does the same in the browser.
+
+There is still no shared header and no registry file. Do not let anyone, human or AI, invent those for your mod alone:
+three mods would get three different inventions, which is the problem the standard is meant to end. The reference
+implementation is model27's (STANDARD.md §8, §9). To move a machine onto it, follow section 12.
 
 - [0. What you need](#0-what-you-need)
 - [1. Describe the mod in five lines](#1-describe-the-mod-in-five-lines)
@@ -23,6 +29,7 @@ problem the standard is meant to end. The reference implementation is model27's 
 - [9. What to send back](#9-what-to-send-back)
 - [10. A prompt for your AI assistant](#10-a-prompt-for-your-ai-assistant)
 - [11. What not to do yet](#11-what-not-to-do-yet)
+- [12. Porting a machine to model27's builder](#12-porting-a-machine-to-model27s-builder)
 
 ## 0. What you need
 
@@ -31,8 +38,9 @@ problem the standard is meant to end. The reference implementation is model27's 
   (1.56, commit `95b63b7`, or earlier): its `tools/`, its `notes/` and `tweaks/model-cycles_OS1.13/REGISTRY.md`;
 - for a machine, [Cycles One-Shot](https://github.com/durchgemacht/cycles-one-shot)'s `TECHNICAL.md` §5 and §6, which
   describe the voice loop and the sound in the OS's terms;
-- for a machine, model27's two packages as worked examples, `tools/machines/sampler/` and
-  `tools/machines/refmachine/` (manifest, sources, committed object), and its notes 59 and 60;
+- for a machine, model27's packages as worked examples, `tools/machines/sampler/`, `tools/machines/refmachine/`
+  (the smallest machine) and `tools/machines/refmachine2/` (a shortcut, both views, the tick and the browser; manifest
+  in STANDARD.md §7.4), each with its manifest, sources and committed object, and its notes 59, 60 and 63;
 - [STANDARD.md](STANDARD.md), sections 2 to 6;
 - your own official `model-cycles_OS1.13.syx`, if a step needs a build or an emulation run. Nothing in this
   checklist asks you to share it.
@@ -144,12 +152,13 @@ Take the inventory of section 2 and, for each item, find the row of STANDARD.md 
 |---|---|---|
 | the added-machine mechanics | `machine` | table |
 | a hook on the Volume + Dist call `0x40059852` | `track.post_voldist` | chain, by `order` |
-| hooks on the three record functions | `sound.record` | chain |
+| hooks on the three record functions | `sound.record` | chain: one wrapper per function, behind model27's shortcut layer |
 | a hook on the parameter-table builder `0x4004486c` | `param.tables` | append |
 | a hook on the sound's slot copy `0x4005aa34` | `sound.copy` | chain |
-| a hook on the browser's file read `0x400a6602` | `browser.open` | chain, first taker |
-| a hook on the redraw `0x400075f0` | `screen.tick` | append |
-| a rewritten draw entry `0x400ffe30` or `0x4010053c` | `view.main`, `view.knob` | chain |
+| a hook on the browser's file read `0x400a6602` | `browser.open` | by machine (the track it loads into) |
+| a hook on the redraw `0x400075f0` | `screen.tick` | append (every machine) |
+| a rewritten draw entry `0x400ffe30` or `0x4010053c` | `view.main`, `view.knob` | by machine (the selected track) |
+| RETRIG held + COLOR, SHAPE, SWEEP or CONTOUR on your machine's tracks | `shortcut` | by machine, from the builder's list |
 | an entry appended to Track Setup | `menu.track_setup` | append |
 | a key combination | `gesture` | exclusive |
 | sound slots, record slots | `param.sound` | registry |
@@ -162,8 +171,9 @@ Take the inventory of section 2 and, for each item, find the row of STANDARD.md 
 An item that fits no row is a **plain hook claim**: keep it in `claims.hooks` with its stock bytes and its reason,
 and add one line on what the extension point *would* be. That line is how the table of §3.1 grows.
 
-Today no point is owned by the standard, so your mod still places its own detours; the mapping is a declaration,
-not a code change.
+Outside model27 no point is owned by a builder, so your mod still places its own detours there; the mapping is a
+declaration, not a code change. In model27 the points of STANDARD.md §3.3 are dispatched when two machines take them;
+section 12 says what your methods must do for that.
 
 ## 5. Registry check
 
@@ -292,16 +302,149 @@ Produce, as files, nothing else:
 3. if the mod is a machine, deviations.md following section 3;
 4. questions.md with anything that fits no extension point, needs a registry number, or could not be measured.
 
-Do not change the mod's code. Do not invent a header, a registrar, a registry file or dispatcher tables (the one
-registrar that exists is model27's composer). Do not assign a machine id or a sound slot. Where STANDARD.md and the
-code disagree, say so and quote both.
+Do not change the mod's code. Do not invent a header, a registrar, a registry file or dispatcher tables (the
+registrar and the dispatchers that exist are model27's). Do not assign a machine id or a sound slot. Where STANDARD.md
+and the code disagree, say so and quote both.
 ```
 
 ## 11. What not to do yet
 
-- do not rewrite the mod against a header, a registry or dispatcher tables that do not exist yet; packaging a
-  machine for model27's composer is a separate step, with its own proofs (STANDARD.md §8);
+- do not rewrite the mod against a header or a registry that do not exist yet; packaging a machine for model27's
+  composer is a separate step, with its own proofs (section 12, STANDARD.md §8);
 - do not assign yourself a machine id, a k slot, a record slot or an order number;
 - do not drop declared conflicts because the rules would compute them;
 - do not report an emulator instruction count as a device percentage;
 - do not ship a manifest as "derived" when it was filled by hand.
+
+## 12. Porting a machine to model27's builder
+
+This section is for a machine that already plays on the Model:Cycles (its own tweak, or a generator such as
+`gen_macro.py`) and should become a *package*: an object model27's composer places and registers with other machines,
+in Python and in the web flasher. REF2 (`tools/machines/refmachine2/`, STANDARD.md §7.4) does everything below; copy
+its files, then replace its sound. Work in a model27 checkout; every step has a check, and a step is done when its
+check passes.
+
+### 12.1 The object
+
+1. **Sources** in `tools/machines/<id>/`, C99 and assembly, MIT or a license that allows it (STANDARD.md §4.2
+   `license`). No libc: no `memcpy`, no initialised local arrays (GCC may turn them into a `memcpy` call), no float
+   if you can avoid it.
+2. **Flags:** `-std=c99 -mcpu=54418 -O2 -ffreestanding -fno-builtin -fno-tree-loop-distribute-patterns -nostdlib
+   -fno-pic -fno-common -ffunction-sections -fdata-sections -Wall -Wextra -Werror`, as REF2's manifest has them.
+   They give an object with only `R_68K_32` relocations, which `tools/relocate.py` can place.
+3. **No build-time constants for the build's numbers.** The machine's number and its first descriptor are patch
+   points: an undefined symbol whose address is the value.
+
+   ```c
+   extern char ref2_machine_index[];                   /* kind machine_index */
+   #define REF2_MACHINE ((int32_t)(long)ref2_machine_index)
+   ```
+4. **Variables** in your own BSS; `.data` and `.rodata` go with the code. A section aligned to more than 4 is
+   refused.
+5. **The object** is the `ld -r` of the sources, `tools/machines/<id>/<id>.o`, written and checked by a generator
+   (`tools/gen_refmachine.py` is the model: `compose.build_object`, `compose.emit_bytes`, `--check`).
+
+*Check:* `python3 tools/relocate.py tools/machines/<id>/<id>.o` lists your sections, `R_68K_32` only, and your patch
+points as the only undefined symbols.
+
+### 12.2 The voice
+
+Follow STANDARD.md §2.6:
+- `update(pmod, voice, params)` and `render(out, voice)`;
+- the pitch law of §2.1;
+- the stock chain at the end of `render`;
+- nothing while idle;
+- a marker at `voice + 0x2c` for the voice reset.
+
+REF2's `refmachine2.c` is all of it in 150 lines.
+
+### 12.3 The manifest
+
+Start from REF2's (STANDARD.md §7.4). Then:
+- `id` is your folder's name;
+- `order` comes from the maintainer;
+- `build` names your sources, your object, your patch points, `update`/`render`, and in `keep` every function a hook
+  or vtable entry points at;
+- the `machine` entry gives four knobs (long name, short name of 4 characters at most, default, and `min`/`max` if not
+  0–127), the picture of a stock machine (`image`, 0–5) and DECAY's default.
+
+*Check:* `python3 tools/compose.py --cycles <official file> --machines <id> --compare-ld` composes your machine alone,
+identical to `ld`. Then compose it with `sampler` before and after it.
+
+### 12.4 A shortcut (optional)
+
+Your machine may give its tracks up to four extra values, one per knob, on **RETRIG held + COLOR, SHAPE, SWEEP or
+CONTOUR**. No other combination is accepted.
+
+```json
+{"point": "shortcut", "key": "RETRIG", "knob": "COLOR",
+ "param": {"long": "Octave", "short": "OCT", "min": -2, "max": 2, "default": 0}}
+```
+
+- **0 is the neutral setting**, and `default` must be 0: a new sound, a sound saved before your machine had the
+  shortcut, and a sound from the official OS all read 0. Choose the range around it.
+- **Where to read it:** COLOR's value is in k 28, SHAPE's in k 29, SWEEP's in k 30 and CONTOUR's in k 31, at
+  `params + 0x38 + 2 · i` in `update`, an 8.8 signed word. Clamp it to your range.
+- **What you do not write:** the builder's shortcut layer shows the value, saves it with the sound and loads it back.
+  Do not hook the record functions for it.
+- **What it does not do:** the value is not p-locked and is not an LFO destination. Holding FUNC, TRACK, LFO or a trig
+  turns the knob back to its own parameter.
+- **It stays when a track changes machine**, and the next machine reads it its own way.
+- **Optional `format`:** a kept function `int32_t f(void *object, int32_t value, char *buffer)` that writes at most
+  three characters. Without it the value shows as an integer.
+
+### 12.5 The points SAMPLE uses
+
+Each one is a `uses` entry with the hook or vtable entry exactly as in REF2's manifest. The builder writes it
+directly when your machine is the only one there, and goes through its dispatcher when another machine of the build
+takes it too. **So write each method as if it were alone:** it must check that the track is yours and do the stock
+work otherwise.
+
+| Point | Your method | It must |
+|---|---|---|
+| `view.main` | `void main_draw(void *view, void *bitmap)` at `0x400ffe30` | draw only on the selected track of your machine and without a value window open (`0x4006b704(0x400cf9a8())` is 0); otherwise call the stock `0x4001b22a(view, bitmap)` |
+| `view.knob` | `void knob_draw(void *view, void *bitmap)` at `0x4010053c` | draw only for your machine's parameter (`*(int32_t *)(view + 0x230)`, its descriptor), a value window open and no trig held (`0x4006b736(0x400cf9a8())` is 0); otherwise call the stock `0x4001e40a(view, bitmap)` |
+| `screen.tick` | `uint32_t tick(void *view)`, `jsr` at `0x400075f0` | do its work quickly for every track, then return `0x40076be4(view)`; it may run from two tasks, so lock what you share; to redraw the main screen, call `0x40076082(main_view)` with the view your draw last got |
+| `browser.open` | an assembly hook, `jsr` at `0x400a6602` | keep a0 (&result), a2 (the browser's pointer) and d2–d7; take the file only on a track of your machine (the browser object's `+664`); otherwise end with `jmp 0x400a3052` |
+| `sound.record` | an "around" wrapper over the first 8 bytes of `0x4005afa0`, `0x4005b054`, `0x4005aecc` (One-Shot's `hooks.S`) | replay the 8 bytes, run the body, call your `after` function, keep `d0`, act only on sounds of your machine and only when the function returned 1. Only one machine may have one; use a shortcut where you can |
+
+How to find the selected track's sound and machine is in REF2's `ref2_view.c`: `ref2_sound_of`, `selected_track`. Use
+the same: the dispatchers find the machine the same way.
+
+### 12.6 Proofs
+
+Copy the tests and point them at your machine:
+- `tools/emu/test_compose.py`, the registration and the voice loop;
+- `tools/emu/test_shortcuts.py`, if you declared a shortcut;
+- `tools/emu/test_views.py`, if you take a view, the tick or the browser.
+
+They run the OS's own code in Unicorn. Then:
+- `tools/webcompose_check.sh <official file>`: the web flasher composes your machine as the Python composer does;
+- `check_overlaps.py` and `registry.py --check`;
+- the maintainer's device.
+
+### 12.7 Not allowed
+
+- a shortcut outside the list, two shortcuts on one knob, or a default other than 0;
+- a sound slot or record slot of your own (k 23–32 and the record slots are taken: STANDARD.md §5.2, §5.3);
+- a hook on the knob lookup `0x401005a8` (the shortcut layer's), or on the record functions next to another
+  machine's wrapper;
+- a method that draws, ticks or opens without checking the track: next to another machine it would run for that
+  machine's tracks too;
+- RAM outside your BSS other than a `memory.ram` claim that stays clear of the payload window.
+
+### 12.8 A prompt for your AI assistant
+
+```text
+Read STANDARD.md (sections 2, 3, 4 and 7.4) and APPLYING.md section 12 from <path to the standard>, then model27's
+tools/machines/refmachine2/ (manifest.json, refmachine2.c, ref2_view.c, ref2_open.S) in <path to model27>.
+
+Port the machine in <path to its sources> to a package in model27's tools/machines/<id>/, following APPLYING.md
+section 12 step by step: the object (12.1), the voice (12.2), the manifest (12.3), a shortcut only if the machine
+needs an extra value (12.4), and only the points of 12.5 the machine already uses, each method checking its own
+track. Write the generator and the proofs by copying model27's for REF2. Run every check named in section 12 and
+report each result; where one fails, stop and say why.
+
+Do not invent shortcuts, sound or record slots, points or dispatchers. Do not change model27's composer, its parts or
+SAMPLE. Do not mark anything tested: the maintainer tests on the device.
+```

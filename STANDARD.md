@@ -297,7 +297,8 @@ takes none of its points, are byte for byte what they were. The web flasher fill
 ### 3.4 Limits a builder enforces
 
 - at most 6 added machines (descriptors), 14 machines on the MACHINES page, 8 added records, in the current layout
-  of the moved tables (`gen_syntakt_engines.check_room`); a larger layout is possible because the tables are ours;
+  of the moved tables (`gen_syntakt_engines.check_room`); a larger layout is possible because the tables are ours,
+  and model27 will raise the number of added machines soon;
 - the image ends below `0x40200000`;
 - the payload window of a build: `0x43000000` upward alone, `0x46700000`–`0x46800000` with Model-TG; a package's
   `memory.ram` claim must not overlap the window;

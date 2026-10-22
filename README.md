@@ -138,7 +138,7 @@ detours such a place itself; it registers a callback in its manifest and the bui
 
 | Point | What it is | How mods share it | Who uses it today |
 |---|---|---|---|
-| `machine` | the machine tables | **table**, builder assigns the slot; 6 added machines fit in the current layout, 14 on the MACHINES page | MACRO, ACID, Syntakt engines, Model-TG's sampler, SAMPLE |
+| `machine` | the machine tables | **table**, builder assigns the slot; 6 added machines fit in the current layout (to be raised soon), 14 on the MACHINES page | MACRO, ACID, Syntakt engines, Model-TG's sampler, SAMPLE |
 | `track.post_voldist` | the track chain after Volume + Dist, before pan, level and sends | **chain**, in declared order; a register contract to keep | track filter |
 | `sound.record` | saving and loading a sound | **chain**: one machine's "around" wrapper behind model27's shortcut layer | Model-TG, track filter, One-Shot (outside model27: three separate hooks, declared as conflicts) |
 | `browser.open` | the PRESET browser opens a file | **by machine**: the machine of the track it loads into | One-Shot (sample files on a SAMPLE track), REF2 |

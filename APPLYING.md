@@ -269,7 +269,7 @@ about, starting with those in your own build:
 2. same exclusive point, different meaning;
 3. same registry number;
 4. overlapping masks, payload or RAM;
-5. more machines than the layout holds (6 added), or a cost sum that looks too high;
+5. more machines than the layout holds (6 added for now, to be raised soon), or a cost sum that looks too high;
 6. same `order` at the same chain point;
 7. a reason only a human knows.
 

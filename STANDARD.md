@@ -1,17 +1,23 @@
-# Cycles Mod Standard — draft 0.3
+# Cycles Mod Standard — draft 0.4
 
-**Status:** draft 0.3, 2026-10-22, public. Draft 0.1 (2026-10-21) described a target only. Draft 0.2 described the
+**Status:** draft 0.4, 2026-10-23, public. Draft 0.1 (2026-10-21) described a target only. Draft 0.2 described the
 `machine` point of Level B and the manifest of Level C as [model27](https://github.com/durchgemacht/model27) built
 them: a composer that places committed objects and registers them through a runtime, with no toolchain at build
-time, tested on a Model:Cycles on 2026-10-22 (§8). Since then model27 has also built:
+time, tested on a Model:Cycles on 2026-10-22 (§8). Draft 0.3 added what model27 built next:
 - the machine shortcuts, a fixed list of key + knob combinations a machine may use on its own tracks (§3.1);
 - dispatcher tables for every point SAMPLE uses: `sound.record`, `view.main`, `view.knob`, `screen.tick`,
   `browser.open` (§3.3);
 - the same composition in the web flasher, in JavaScript, byte for byte (§8).
 
-All of this is proven in emulation with a second, internal reference machine, REF2, whose manifest is the template
-for porting a machine (§7.4). It is not tried on the device yet. The number registry and the shared header are still
-proposals.
+Since then model27 has built the claims (2026-10-23):
+- what each mod takes beyond its writes, as declared data in one shape: saved slots, key combinations, descriptors,
+  formatters, MIDI numbers, RAM, views (§4.5);
+- the conflicts of rules 2 and 3 computed from them, by both composers and the overlap check (§4.4);
+- the registry's tables generated from them (§5).
+
+The machine parts are proven in emulation with a second, internal reference machine, REF2, whose manifest is the
+template for porting a machine (§7.4); REF2 is not tried on the device yet. The claims are proven by the tools' own
+checks. The shared header is still a proposal.
 **Authors:** durchgemacht and Claude.
 **License:** MIT ([LICENSE](LICENSE)).
 **Scope:** mods for the Elektron Model:Cycles OS 1.13 that are built from the user's own official file with
@@ -22,6 +28,15 @@ but not followed through in the OS, it says so. Addresses are virtual addresses 
 
 **Applying it to an existing mod:** [APPLYING.md](APPLYING.md) is the checklist for authors and their AI
 assistants. It produces an inventory, a manifest, the collisions and the deviations of a mod, not a rewrite.
+
+**Changes from 0.3:**
+- §3.1: the `gesture` and `param.sound` points as model27 computes them, and the gestures each mod takes;
+- §4.2: the shapes of `claims`; new §4.5, the claims as model27 reads them (scopes, situations, the words of a
+  combination, the stock combinations);
+- §4.3 and §4.4: rules 2 and 3 computed, and what building them settled;
+- §5: model27 keeps no number file, its registry's tables come from the claims; §5.2 to §5.5 brought up to date;
+- §7.1, §7.3 and §7.4: the claims and the counts as computed now;
+- §8 to §11: brought up to date.
 
 **Changes from 0.2:**
 - §3.1: `sound.record`, `view.main`, `view.knob`, `screen.tick` and `browser.open` as model27 dispatches them, and the
@@ -244,8 +259,8 @@ and checked byte for byte by `check_overlaps.py`, as today.
 | `view.main`, `view.knob` | entry `+16` of MainScreenView's vtable (`0x400ffe30`, stock `0x4001b22a`) and of the knob view's (`0x4010053c`, stock `0x4001e40a`): the draw method | **by machine**, as built in model27: the draw of the selected track's machine, otherwise the stock draw; each draw still checks the track itself and calls the stock draw in every case it does not take, so that it works as the point's only taker too | one draw per machine and view; level-pan-values draws on the main screen through other hooks (`0x400081f2`, `0x4001aa4e`) and is not a byte conflict, but a functional one this point would make visible | One-Shot, REF2 |
 | `menu.track_setup` | FUNC + TRACK; TrackMenuView is rebuilt at every opening by its one caller `0x4001c510` (`jsr 0x4003e020`); entries are 84-byte MenuItems (`0x400734b0`, vtable `0x40103470`) with four `std::function` callbacks, appended with `0x400732d6(menu, item, 12)`; strings via `0x400f980c` | **append**, in `order`; a package gives label, value text, change callback and a scope (all tracks, or tracks of its machine) | the MenuItem ABI is the risk; the shared header wraps it once | — (read for One-Shot's loop/reverse, not built) |
 | `shortcut` | RETRIG held + COLOR, SHAPE, SWEEP or CONTOUR, on a track of the machine that declares it: the knob lookup's vtable entry `0x401005a8` (stock `0x4001e814`) | **by machine**: one shortcut per knob and machine, from the builder's fixed list (model27: the four above); the builder's shortcut layer shows the machine's value through the OS's unused descriptors 1–4 and saves it in k 28–31 and record slots 28–31 (§5.2, §5.3) | four per machine; never with FUNC (fine adjust), TRACK (Control All), LFO (its destination) or a held trig (p-locks): no p-lock and no LFO destination; 0 is every value's default (a new sound and an old one read 0) | REF2 (Octave) |
-| `gesture` | key combinations and their meaning | **exclusive** per combination and scope; registry only, no dispatcher | — | MACHINES held + knob (track-filter; Model-TG's Attack), FUNC + PITCH on MACRO tracks (lo-fi), TRACK + TRIG 1–6 (control-all-config), TRACK + PUNCH/GATE (stock Control All), FUNC + MACHINE (PRESET browser), RETRIG + knob (the `shortcut` point) |
-| `param.sound` | the sound slots k 23–32 and the record slots | **registry** (section 5) | no k is free any more (notes/56 §3.6) | Model-TG, track-filter, lfo-plus, One-Shot |
+| `gesture` | key combinations and their meaning | **exclusive** per combination, situation and scope; no dispatcher. As model27 computes it: a combination's atoms, one set of held keys and one action each, clash in situations and scopes that meet, with another meaning (§4.5) | — | MACHINES held + COLOR/SHAPE/SWEEP/CONTOUR (track-filter), MACHINES held + DECAY/SWEEP/CONTOUR (Model-TG's Attack, Filter, Resonance), FUNC + PITCH on MACRO tracks (lo-fi), TRACK + TRIG 1–6 (control-all-config), TRACK held + FUNC (latching-mute), a TRIG held + PAGE (trig-preview), RETRIG held + notes (arp), TRIG 1–16 in Keys mode (chord-keys), LFO on the LFO page (lfo-plus), RETRIG + knob (the `shortcut` point); the stock combinations of §4.5 |
+| `param.sound` | the sound slots k 23–32 and the record slots | **registry** (section 5); computed from the claims in model27 (§4.4) | no k is free any more (notes/56 §3.6) | Model-TG, track-filter, lfo-plus, One-Shot, model27's shortcut layer |
 | `param.descriptor` | the OS's unused descriptors 1–4 ("Error"), which the track-filter turns into real parameters of every machine (p-locks, LFO, CC, NRPN) | **exclusive** | four | track-filter; model27's shortcut layer, machine-scoped (their machine stays −1, so no row, CC, NRPN or LFO list has them) |
 | `midi` | CC and NRPN numbers a package listens to | **registry** | — | track-filter (CC 74, 71; NRPN 1:20, 1:21) |
 | `memory.mask` | freed sprite masks (notes/52): 164 masks, 35 960 bytes; 113 free (18 152 bytes) at release 1.56 | **allocation** by `registry.py` and `sprites.redirect_write` | a mask is redirected in the same tweak that writes it | arp, chord-keys, lfo-plus, track-filter, trig-hold, … |
@@ -330,7 +345,7 @@ takes none of its points, are byte for byte what they were. The web flasher fill
 | `order` | declared | the package's place among chains (today's tweak `order`); section 5.6 |
 | `build` | declared | the object's recipe (`sources`, `include`, `cflags`, `defines`); `objects`: one relocatable ELF file, the `ld -r` of the sources, committed; `symbols`: `update` and `render`; `keep`: the other symbols the writes need (hooks, view methods); `patch_points`: `{symbol, kind}`, an undefined symbol whose address the builder sets (kinds `machine_index`, `descriptor_base`) |
 | `uses` | declared | one object per extension point, with that point's own fields; a hook as `hook: {at, stock, op, symbol}` (`op` is `jsr` or `jmp`), a vtable entry as `vtable: {at, stock_ptr, symbol}`, each with `why`. The builder checks the stock bytes against the user's file and writes the hook, or the point's dispatcher when another machine of the build takes it too (§3.3). A shortcut is `{"point": "shortcut", "key": "RETRIG", "knob": "COLOR", "param": {"long", "short", "min", "max", "default": 0, "format"}}`: names in printable ASCII, the short one of 4 characters at most; integers with min ≤ 0 ≤ max within −128…127; `format`, optional, a kept symbol of the package written like the OS's formatters (`(object + 0x14, value, buffer)`), the integer one otherwise; the machine reads the value in k 28 to 31 (`params + 0x38 + 2 · i`, i the knob's place in the list) |
-| `claims` | declared | `sound_slots`, `record_slots`, `ram`, `formatters`, `descriptors`, `midi`, `gestures`, `views`. Hooks are in `uses`; masks, payload and sizes are derived into the build's tweak and `REGISTRY.md`, not written in the manifest |
+| `claims` | declared | `sound_slots`, `record_slots`, `saved`, `descriptors`, `formatters`, `plock_rows`, `midi`, `gestures`, `ram`, `views`, in the shapes of §4.5: a number or a string takes the holder's own scope (a package's machine); an object names another scope, a range, a situation, a meaning, or what a stock combination it takes did (`replaces`). Hooks are in `uses`; masks, payload and sizes are derived into the build's tweak and `REGISTRY.md`, not written in the manifest |
 | `cost` | declared, measured | section 6 |
 | `stock_behaviour` | declared | `changes`: what a stock function or gesture no longer does on this package's tracks; `fixes`: stock bugs it corrects; `unchanged`: what was proven bit for bit |
 | `compat` | declared | `built_against` (Modded-Cycles commits the build was verified with), `requires` (packages it needs), `conflicts_declared` (reasons a tool cannot compute, with text) |
@@ -356,11 +371,13 @@ The package's generator rebuilds the object with the pinned compiler and compare
 
 - the tweak JSON (`writes`, `append`, `symbols`, computed `conflicts`), as `machine/build.py` writes it today;
 - the flasher card (`label`, `desc`, `status`, `credit`, `license`, `excludes` from the computed conflicts);
-- the registry entries (`REGISTRY.md` §1–§7) and the number-registry check;
+- the registry entries (`REGISTRY.md` §1–§10; in model27, §6 and §8 to §10 come from the claims) and the checks
+  of the claims;
 - the build report: index assigned to each machine, descriptor numbers, payload addresses, cost sum.
 
 In model27 today the composer derives the tweak JSON and the build report; the flasher card and the registry entries
-still come from that tweak JSON through the existing tools (`gen_flasher_tweaks.py`, `registry.py`).
+still come from that tweak JSON through the existing tools (`gen_flasher_tweaks.py`, `registry.py`). The registry's
+saved data, key combinations, MIDI numbers and views come from the claims (since 0.4).
 
 ### 4.4 Computed conflicts
 
@@ -377,9 +394,71 @@ Two packages conflict when the builder finds any of:
 A package may still list `conflicts_declared` for reasons tools cannot see ("both re-number p-lock rows for
 k ≥ 23", notes/56 §3.6): the text is shown on the flasher as the reason, as `clashWhy` does today.
 
-model27's composer computes rules 1, 4 (other payloads and the packages' RAM claims) and 7 today, against every
-tweak of its folder: SAMPLE alone conflicts with 267 tweaks, SAMPLE with model27's reference machine with 268, the
-union of the two packages' own lists (§7.1).
+**As built in model27** ([notes/65](https://github.com/durchgemacht/model27/blob/main/notes/65-level-c-claims-check.md),
+steps C1 to C4, 2026-10-23). The composer, in Python and in the web flasher alike, computes rules 1 to 4 and 7
+against every tweak of its folder; `check_overlaps.py` applies rules 1 to 3 to every pair of tweaks that can be ticked
+together. What building them settled:
+- a claim on the OS's own slots (k 0–22, record slots 0–23 but 18) is refused, and so is a stock combination taken
+  without saying what it replaces (§4.5);
+- a formatter belongs to its interface object, whatever the scopes: an object has one formatter pointer, and SAMPLE's
+  Cutoff shares object 53 with SNARE's SWEEP;
+- two identical gesture claims (the same meaning) are allowed; a slot is a number, so two holders of one slot clash
+  even when they mean the same;
+- a package meets the builder's shortcut layer only with the claims beyond its shortcuts, which are the layer's
+  claims narrowed to its machine;
+- a build whose own packages clash is refused; a package's own tweak is not compared with a build that contains it;
+- two drawings of one view in scopes that meet are a warning, not a conflict.
+
+SAMPLE alone conflicts with 268 tweaks of model27's folder, SAMPLE with the reference machine with 269. The claims now
+compute lfo-plus's clash with the shortcut layer, which was declared by hand (§5.2). Of the folder's 35 137 declared
+conflict pairs, the bytes show 35 118, the claims alone 2 (lfo-plus with the track filter and with REF2), both 9;
+8 are shown by their text only, and keep it (§9, step 5). Where two cards of the web flasher exclude each other and no
+hand-written reason exists, the page says the first kind of clash the claims show.
+
+### 4.5 Claims as model27 reads them
+
+What a mod takes beyond its writes, in one shape, read and checked by model27's `tools/claims.py`:
+
+- **Where they live:** a package's claims in its manifest, a part's in its `part.json`, the tweaks of a folder in one
+  declared file (model27: `tweaks/model-cycles_OS1.13/claims/claims.json`), one entry per tweak or family, each with
+  the note that shows it and what is still open.
+- **Scopes:** `all` (every track and sound), `machine` (a package's own machine), `machine:<NAME>` (a stock machine,
+  MACRO, ACID or a package). A package's claims default to its own machine, a tweak's and a part's to every track.
+  Two scopes meet when one is `all` or both name the same machine.
+- **Numbers and the rest:**
+  - `sound_slots` (k 0–32), `record_slots` (0–31 as far as read), `descriptors` (the OS's unused 1–4), as numbers
+    or as `{"slots": [first, last], "scope": ...}`;
+  - `saved` (`{"where", "bytes"}`), `formatters` (`{"knob", "object", "replaces"}`), `plock_rows` (true when the mod
+    re-numbers the p-lock rows of k ≥ 23);
+  - `midi` (`{"cc": [...], "nrpn": ["MSB:LSB"]}`), `ram` (`[first, end)`), `views` (`main`, `knob`).
+- **A key combination** is written as the table of §5.4 writes it, the held keys then one action joined by `+`:
+  `TRACK + TRIG 1-6`, `MACHINES + COLOR/SHAPE/SWEEP/CONTOUR`. `1-6` and `/` expand; the tools compare *atoms*, one
+  set of held keys and one action each. The words:
+  - the keys by `isKeyHeld`'s code: FUNC 1, TRACK 2, RETRIG 4, MACHINES 5, PUNCH 6, LFO 8, RECORD 9, PLAY 10,
+    STOP 11, TRIG 1–16 as 16–31, and GATE, PAGE and PATTERN, whose codes are not traced;
+  - the knobs: PITCH, DECAY, COLOR, SHAPE, SWEEP, CONTOUR, and DATA for LEVEL/DATA;
+  - NOTES (notes played) and DATA-PRESS.
+- **A situation** says where it acts: `params` (the parameter pages), `grid`, `keys`, `page:<name>`, `menu:<name>`,
+  or `any`. It is the user's situation, not the view whose code reads the keys: views are served from the end of
+  their list, so a view higher up takes a combination from every view below it (Control All Config's TRACK + TRIG 1–6
+  shadows any reader in `KeyboardView`). Two named situations exclude each other; `any` meets all.
+- **The stock combinations,** as far as they are read (model27's `REGISTRY.md` §8):
+  - FUNC + knob (fine adjust), TRACK + knob (Control All), LFO + knob (LFO destination), TRIG + knob (p-lock);
+  - TRACK + PUNCH/GATE, FUNC + TRACK, FUNC + MACHINES, FUNC + RETRIG, TRACK + RECORD/PLAY/STOP;
+  - RETRIG held + notes (the retrig), a TRIG held + PAGE in the grid (the page turns), LFO on the LFO page (a
+    hypothesis).
+
+  A claim that takes one says what it did, in `replaces`.
+
+The track filter's entry in model27's `claims.json`:
+
+```json
+{"ids": ["track-filter"], "source": "notes/47",
+ "claims": {"sound_slots": [28, 29, 30, 31], "record_slots": [18, 27, 30, 31], "plock_rows": true,
+            "descriptors": [1, 2, 3, 4], "midi": {"cc": [74, 71], "nrpn": ["1:20", "1:21"]},
+            "gestures": [{"combo": "MACHINES + COLOR/SHAPE/SWEEP/CONTOUR", "situation": "params",
+                          "meaning": "Filter Env / Env Decay / Filter Cutoff / Filter Reso"}]}}
+```
 
 ## 5. The number registry
 
@@ -387,6 +466,12 @@ Numbers that land in users' data cannot be assigned by the builder: a sound stor
 parameters in k slots, its extras in record slots; a project stores settings. A build that assigns them differently
 breaks every saved project. The registry lives in the repository as one file, is appended to, never re-ordered, and
 the builder refuses a number that is not in it.
+
+**As built in model27:** there is no separate number file.
+- Each mod declares the numbers it takes as claims (§4.5).
+- The tools refuse two mods that share one in scopes that meet (§4.4).
+- `REGISTRY.md` §6 and §9 list who holds which, generated from the claims.
+- Machine ids follow option C (§5.1).
 
 ### 5.1 Machine ids
 
@@ -422,7 +507,7 @@ The recommendation of 0.2, option A, is withdrawn.
 ### 5.2 Sound parameter slots k
 
 The sound holds k 0–32; the stock OS uses 0–22 (notes/47 §4.3). Assigned today (notes/56 §3.6, One-Shot TECHNICAL
-§6):
+§6; model27's `REGISTRY.md` §6 generates this map from the claims):
 
 | k | Holder | Content | Status |
 |---|---|---|---|
@@ -432,7 +517,7 @@ The sound holds k 0–32; the stock OS uses 0–22 (notes/47 §4.3). Assigned to
 | 28–31 | track-filter | Cutoff, Reso, Env, Decay, through descriptors 1–4 | in use |
 | 28–32 | lfo-plus | LFO 2 | in use; clashes with track-filter (declared) |
 | 28 (two bits) | One-Shot loop/reverse | proposed, not built | would clash with track-filter and lfo-plus |
-| 28–31 | model27's shortcut layer | the four shortcuts of the track's machine, machine-scoped (REF2: k 28, Octave); they stay when a track changes machine, and a new sound starts at 0 | in use in model27; the conflict with the track filter is computed (the same hooks); lfo-plus packs k 28–32 into the same record slots from inside the stock save and load, at other bytes, so the shortcut layer declares that conflict |
+| 28–31 | model27's shortcut layer | the four shortcuts of the track's machine, machine-scoped (REF2: k 28, Octave); they stay when a track changes machine, and a new sound starts at 0 | in use in model27; the clashes with the track filter and with lfo-plus are computed from the claims (lfo-plus packs k 28–32 into the same record slots from inside the stock save and load, at other bytes, which no byte check sees) |
 
 **No k is free.** New persistent parameters need either an agreement between packages (lfo-plus could keep LFO 2 in
 memory when the filter is chosen, notes/56 §3.6) or another home in the sound; the 14 bytes after k 32 (`+86`–`+99`)
@@ -441,7 +526,8 @@ have not been read and are **[to verify]** before anyone takes them.
 ### 5.3 Sound record slots
 
 A record stores the sound's parameters as 16-bit slots at `+28 + 2 · slot`; the OS saves k 0–22 through the table at
-`0x4010ee4c` and loads slots 0–23 through `0x4010eea8`, slot 18 going to k 0 and so unused (notes/47 §4.3). Assigned:
+`0x4010ee4c` and loads slots 0–23 through `0x4010eea8`, slot 18 going to k 0 and so unused (notes/47 §4.3). Assigned
+(model27's `REGISTRY.md` §6 generates this map from the claims):
 
 | Slot | Holder | Content |
 |---|---|---|
@@ -457,21 +543,31 @@ A record stores the sound's parameters as 16-bit slots at `+28 + 2 · slot`; the
 
 ### 5.4 Gestures
 
+As declared in model27's claims (its `REGISTRY.md` §8 generates this table), then the stock combinations the
+standard names a point for; the other stock ones are in §4.5:
+
 | Gesture | Holder | Scope |
 |---|---|---|
-| MACHINES held + COLOR/SHAPE/SWEEP/CONTOUR | track-filter | all tracks; Model-TG uses the same gesture for Attack |
-| FUNC + PITCH | MACRO | MACRO tracks: FINE as lo-fi RATE/BITS (stock: PITCH in semitones) |
+| MACHINES held + COLOR/SHAPE/SWEEP/CONTOUR | track-filter (Filter Env, Env Decay, Cutoff, Reso) | all tracks, parameter pages |
+| MACHINES held + DECAY/SWEEP/CONTOUR | Model-TG (Attack, Filter, Resonance) | all tracks, parameter pages; shares SWEEP and CONTOUR with the track filter |
+| FUNC + PITCH | MACRO | MACRO tracks: FINE as lo-fi RATE/BITS; replaces FINE, the stock fine adjust of PITCH |
 | TRACK + TRIG 1–6 | control-all-config | configuration of Control All; TRACK + TRIG 1 is also taken by Modded-Cycles PR #92 |
+| TRACK held + FUNC | latching-mute | latches the mute mode; the stock meaning is not read |
+| a TRIG held + PAGE | trig-preview | the grid, sequencer stopped or paused: the step sounds; replaces PAGE turning the page |
+| RETRIG held + notes | arp | an arpeggio when Arp is not OFF; replaces the retrig |
+| TRIG 1–16 | chord-keys | CHORD tracks, in its Keys mode: the chords of a scale |
+| FUNC + a press on LEVEL/DATA | midi-live-both | CONFIG › MIDI › PORTS, on the OUT/THRU line |
+| LFO | lfo-plus | on the LFO page: LFO 2, 3 and 4; replaces closing the page (a hypothesis) |
+| RETRIG + COLOR/SHAPE/SWEEP/CONTOUR | the `shortcut` point (model27) | the tracks of a machine that declares the shortcut; not with FUNC, TRACK, LFO or a held trig. In the stock OS, RETRIG held changes nothing while a knob turns |
 | TRACK + PUNCH/GATE | stock Control All (`0x4001ac4a`) | all tracks; One-Shot's loop/reverse study would have taken it on SAMPLE tracks |
 | FUNC + TRACK | stock Track Setup menu | the `menu.track_setup` point |
-| FUNC + MACHINE | stock PRESET browser | the `browser.open` point |
-| RETRIG + COLOR/SHAPE/SWEEP/CONTOUR | the `shortcut` point (model27) | the tracks of a machine that declares the shortcut; not with FUNC, TRACK, LFO or a held trig. In the stock OS, RETRIG held changes nothing while a knob turns |
+| FUNC + MACHINES | stock PRESET browser | the `browser.open` point |
 
 ### 5.5 MIDI
 
 CC 74 and 71, NRPN 1:20 and 1:21 belong to the track-filter (notes/47). The stock OS's own CC and NRPN map is not
 in this document yet **[to collect from the OS or the manual]**; until then a new MIDI claim is checked only against
-other packages.
+other packages. model27 checks MIDI claims that way (§4.4).
 
 ### 5.6 Tweak order numbers
 
@@ -586,7 +682,8 @@ at `a279f3f`, unchanged:
   "sound_slots": [25, 26, 27],
   "record_slots": [24, 25, 26, 27],
   "ram": [["0x43800000", "0x46700000"]],
-  "formatters": [{"knob": "Cutoff", "object": 53, "replaces": "0x400456c8"}],
+  "formatters": [{"knob": "Cutoff", "object": 53, "replaces": "0x400456c8", "scope": "all",
+                  "why": "an interface object has one formatter, and object 53 is also SNARE's SWEEP: smp_fmt_cutoff falls back to the stock one off SAMPLE's tracks and is put in only while the stock one is there (machine/view.c)"}],
   "gestures": [],
   "views": ["main", "knob"]
  },
@@ -616,15 +713,16 @@ at `a279f3f`, unchanged:
 - machine 6, descriptors 76 to 80; code and tables, 30 527 bytes, at `0x43000000`; variables, 73 784 bytes, from
   `0x43036000`; the registrar's parameter block for one machine. 123 writes (116 of the registration, 7 of the
   package's hooks and vtable entries), 36 096 bytes added to the image: model27's `27-sampler.json`;
-- 267 conflicts against model27's tweak folder: MACRO, ACID and the Syntakt engines (the same machine tables, other
+- 268 conflicts against model27's tweak folder: MACRO, ACID and the Syntakt engines (the same machine tables, other
   bytes), Model-TG and the track filter (the same sound-record hooks), sample preview (declared), the other
   machine-adding tweaks;
-- with model27's reference machine next to it as machine 7: 268, the union of the two packages' lists. Composing
+- with model27's reference machine next to it as machine 7: 269, the union of the two packages' lists. Composing
   adds no conflict;
 - `memory.ram` starts above the build's payload (`0x43000000`–`0x43048038` alone): since One-Shot 0.7 the pool no
   longer clashes with the payload window;
-- at the registry level, once it exists (§5): sound slots 25–27 against Model-TG's 23–27 and record slot 27 against
-  the track filter. Today rule 1 (the same sound-record hooks) already keeps SAMPLE apart from both.
+- the claims (2026-10-23): sound slots 25–27 against Model-TG's 23–27, record slot 27 against the track filter, as
+  rule 1 (the same sound-record hooks) already found; declared only: sample preview, whose reason is text; a warning:
+  level-pan-values draws on the main screen too.
 
 ### 7.2 MACRO (Modded-Cycles 1.56)
 
@@ -722,10 +820,13 @@ mechanics) stays declared; the 72-entry list of today shrinks to the registry an
 }
 ```
 
-Computed conflicts: Model-TG (same gesture with another meaning: Attack; the chain on `sound.record` would remove
-the hook conflict but the gesture stays exclusive), lfo-plus (sound slots 28–31 against 28–32, record slots 30–31
-against 30–31: registry), One-Shot (record slot 27: registry; the `sound.record` chain replaces today's hook
-conflict), One-Shot's loop/reverse study (k 28 bits: registry).
+Computed conflicts, from model27's claims (2026-10-23):
+- Model-TG: MACHINES held + SWEEP and + CONTOUR with another meaning, and record slot 27. The chain on `sound.record`
+  would remove the hook conflict, but the gesture stays exclusive.
+- lfo-plus: sound slots 28–31 against 28–32, record slots 30–31 against 30–31, and both re-number the p-lock
+  rows.
+- One-Shot: record slot 27. The `sound.record` chain replaces today's hook conflict.
+- One-Shot's loop/reverse study: the bits of k 28.
 
 ### 7.4 REF2 (model27's second reference machine)
 
@@ -785,7 +886,7 @@ after step B4e:
   {"point": "browser.open", "hook": {"at": "0x400a6602", "stock": "4eb9400a3052", "op": "jsr", "symbol": "ref2_hook_open"},
    "why": "the browser reads the file it opens: on a REF2 track the label shows its name, then the stock open reads it"}
  ],
- "claims": {"sound_slots": [28], "record_slots": [28], "ram": [], "gestures": ["RETRIG + COLOR"], "views": ["main", "knob"]},
+ "claims": {"sound_slots": [28], "record_slots": [28], "ram": [], "gestures": [{"combo": "RETRIG + COLOR", "situation": "params", "meaning": "Octave"}], "views": ["main", "knob"]},
  "cost": {"emulation": {"status": "not measured"}, "device": {"status": "not measured"}},
  "stock_behaviour": {"changes": [], "fixes": [], "unchanged": ["other tracks and machines"]},
  "compat": {"built_against": ["model27"], "requires": [], "conflicts_declared": []},
@@ -810,6 +911,8 @@ after step B4e:
   dispatchers for the four shared points, with both machines' methods in the tables.
 - **Proven in emulation** on the OS's own code: the knob in 1 792 to 2 240 cases per build, the value's range, clamp,
   display, save and load, a machine change, the octave, the views, the tick and the browser. Not yet on the device.
+- **The claims** (2026-10-23): through the shortcut layer, k 28–31 and record slots 28–31 of every sound. lfo-plus's
+  clash is computed from them, and so are the track filter's and Model-TG's.
 
 ## 8. Builder and web flasher
 
@@ -852,12 +955,16 @@ B3; notes/63, step B4e).
   layer's data block, the dispatchers' tables.
 - `webcompose_check.sh` checks every composition it makes against the Python composer's bytes, with SAMPLE, REF and
   REF2 alone and together.
+- The claims reach the page too (since 0.4): the packages' and the parts' with them, the offered tweaks' by id. The
+  page applies rules 2 and 3 as the Python composer does, and `webcompose_check.sh` compares the conflicts, with
+  probes of claims only. Where two cards exclude each other and no hand-written reason exists, the page says the
+  first kind of clash the claims show, in English and in French.
 
 Pre-linked variants per slot are not needed.
 
-- **Verification stays as it is:** `check_overlaps.py` byte for byte, `ref_mainos.py` for every card alone and every
-  pair, `registry.py --check`, each package's emulation proof. The computed conflicts are an *additional* check in
-  front of them, not a replacement.
+- **Verification stays as it is:** `check_overlaps.py` byte for byte and now claim for claim, `ref_mainos.py` for
+  every card alone and every pair, `registry.py --check`, each package's emulation proof. The computed conflicts
+  are an *additional* check in front of them, not a replacement.
 
 ## 9. Migration path
 
@@ -871,12 +978,17 @@ Pre-linked variants per slot are not needed.
    (§8). SAMPLE still excludes MACRO, ACID and the Syntakt engines there, because they are not packaged.
 3. **Generate manifests for the existing mods** from their generators: the derived part is already computed there;
    the declared part (gestures, scopes, stock-behaviour changes, tests) is copied from the notes and the cards.
-   Authors can start by hand with [APPLYING.md](APPLYING.md). *Started:* SAMPLE and model27's reference machine have
-   manifests, written by hand.
+   Authors can start by hand with [APPLYING.md](APPLYING.md). *Started:* SAMPLE and model27's reference machines have
+   manifests, written by hand. The declared part of model27's other tweaks is one file of claims
+   (`claims/claims.json`): 11 entries for 139 tweaks, those whose saved data, key combinations or views a tool can
+   check (§4.5).
 4. **Teach `registry.py` to read manifests** for §6 (saved data) and the gestures, instead of the notes; add the
-   number registry file and its check. *Not started.*
+   number registry file and its check. *Done in model27* without a number file: `REGISTRY.md` §6 (saved data), §8
+   (key combinations), §9 (descriptors, formatters, p-lock rows, MIDI) and §10 (views) come from the claims (§5).
 5. **Compute conflicts** and compare with the declared lists; keep only the declared ones that have a reason tools
-   cannot see. *Started:* model27's composer computes rules 1, 4 and 7 for machines (§4.4).
+   cannot see. *Done in model27* for rules 1 to 4 and 7 (§4.4), with a report of how each declared conflict is
+   shown. The declared conflicts of the folder's tweaks stay as Modded-Cycles wrote them; model27's own hand entry
+   (the shortcut layer's lfo-plus) is gone, computed now.
 6. **Dispatcher tables** for `sound.record`, `screen.tick`, `view.*` and `menu.track_setup`, one at a time, each
    proven in emulation like a mod. *Done in model27* for `sound.record`, `view.main`, `view.knob`, `screen.tick` and
    `browser.open` (§3.3), proven in emulation with SAMPLE and REF2, not yet on the device; `menu.track_setup` not
@@ -889,7 +1001,8 @@ Pre-linked variants per slot are not needed.
 - The cost threshold the builder warns at, and whether a chain stage counts once or per track.
 - The two unread places: `track.post_voice`'s contract and the `fx.bus` location; the sound bytes `+86`–`+99`.
 - The stock MIDI map for the `midi` registry.
-- Who assigns registry numbers: the maintainer on merge, as with Modded-Cycles' "tested" status.
+- Who assigns registry numbers: the maintainer on merge, as with Modded-Cycles' "tested" status. In model27 the
+  claims stand in for a number file (§5).
 - Whether the shared header is a separate repository that One-Shot and the builders depend on, or lives in a
   builder's `tools/machines/` (Modded-Cycles', model27's).
 
@@ -897,6 +1010,13 @@ Decided in 0.2: the web flasher uses the relocator, with objects placed once (§
 - machine ids follow option C (§5.1);
 - shortcuts are a fixed list owned by the builder, RETRIG + COLOR/SHAPE/SWEEP/CONTOUR, machine-scoped (§3.1);
 - the shared points go by machine, the tick to every machine (§3.3).
+
+Decided in 0.4
+([model27 notes/65](https://github.com/durchgemacht/model27/blob/main/notes/65-level-c-claims-check.md) §11):
+- a folder's tweaks keep their claims in one declared file, each with its note (§4.5);
+- a key combination is written on a fixed vocabulary and compared as atoms, in situations and scopes (§4.5);
+- a claim on a stock combination says what it replaces, or it is refused; two drawings of one view are a warning;
+- the web flasher says a computed reason where no hand-written one exists (§4.4).
 
 ## 11. Sources
 
@@ -925,3 +1045,10 @@ Read for this draft, all local copies:
   - `tools/machines/shortcuts/`, `tools/machines/dispatch/` and `tools/machines/refmachine2/`;
   - `tools/emu/test_shortcuts.py` and `test_views.py`;
   - notes 62, 63 and 64.
+- For 0.4, model27 after step C4 (2026-10-23):
+  - `tools/claims.py`, `tweaks/model-cycles_OS1.13/claims/claims.json` and the claims of the manifests and of the
+    shortcut part;
+  - `tools/compose.py` and `docs/flasher/composer.js` (the claims' rules), `tools/check_overlaps.py`,
+    `tools/registry.py` and `REGISTRY.md` §6 and §8 to §10;
+  - `tools/machines/sampler/machine/view.c` (the formatter of object 53);
+  - notes 65, 34, 42, 53, 55 and 58.

@@ -1,10 +1,12 @@
 # Cycles Mod Standard
 
-**Draft 0.3, public.** This page says what the idea is, first in plain words, then with a bit more technical
+**Draft 0.4, public.** This page says what the idea is, first in plain words, then with a bit more technical
 detail. The full text with every address, rule and source is in [STANDARD.md](STANDARD.md). Much of it is built:
 [model27](https://github.com/durchgemacht/model27) composes added machines from manifests, tested on a Model:Cycles,
-and lets them share the screen, the browser and saved sounds and use a fixed list of shortcuts, proven in an emulator
-(see [Status and next steps](#status-and-next-steps)). To port a machine, follow [APPLYING.md](APPLYING.md) §12.
+and lets them share the screen, the browser and saved sounds and use a fixed list of shortcuts, proven in an emulator.
+Its tools also compute which mods clash over a saved slot, a key combination or a display, from what each mod
+declares (see [Status and next steps](#status-and-next-steps)). To port a machine, follow [APPLYING.md](APPLYING.md)
+§12.
 
 **Authors:** durchgemacht and Claude. **License:** MIT ([LICENSE](LICENSE)).
 
@@ -146,8 +148,8 @@ detours such a place itself; it registers a callback in its manifest and the bui
 | `view.main`, `view.knob` | the main screen and the knob value screen | **by machine**: the selected track's machine draws, or the stock screen | One-Shot, REF2 |
 | `shortcut` | RETRIG held + COLOR, SHAPE, SWEEP or CONTOUR on a machine's tracks | **by machine**, from a fixed list: up to four extra values per machine, saved with the sound | REF2 (Octave) |
 | `menu.track_setup` | the FUNC + TRACK menu | **append** | nobody yet (read for One-Shot's loop/reverse study) |
-| `gesture` | a key combination and its meaning | **exclusive** per combination and scope | track filter, MACRO, Control All Config, stock |
-| `param.sound`, record slots | the spare slots of a sound | **registry** | Model-TG, track filter, LFO-Plus, One-Shot |
+| `gesture` | a key combination and its meaning | **exclusive** per combination, situation and scope; computed in model27 | track filter, Model-TG, MACRO, Control All Config, arp, and more (STANDARD.md §5.4); stock |
+| `param.sound`, record slots | the spare slots of a sound | **registry**; computed from the claims in model27 | Model-TG, track filter, LFO-Plus, One-Shot, model27's shortcuts |
 | `param.descriptor` | the OS's four unused "Error" parameter descriptors | **exclusive** | track filter (makes them real parameters with p-locks, LFO, CC) |
 | `memory.*` | freed sprite masks, the payload copied to RAM at boot, unused RAM | **allocation** by the builder | everyone with code |
 
@@ -158,7 +160,8 @@ third effect would need the second one read first.
 
 One JSON file per mod. The core says who the mod is; `build` says how its one compiled object is made and which of
 its symbols the builder needs; `uses` lists the extension points, each hook with the original bytes it replaces;
-`claims` lists the saved-data slots and the memory it takes; `cost`, `stock_behaviour` and `tests` are declared by
+`claims` lists the saved-data slots, key combinations, displays and memory it takes (the shapes are in STANDARD.md
+§4.5); `cost`, `stock_behaviour` and `tests` are declared by
 the author. Trimmed from SAMPLE's manifest as model27 builds it:
 
 ```json
@@ -200,11 +203,16 @@ a different meaning (a gesture, a formatter); the same number in the registry; o
 the tables hold; the same order at the same chain point; or a declared conflict with a written reason, for the cases
 tools cannot see. Everything else is compatible until a test proves otherwise.
 
-model27's composer already computes the byte rule, the memory rule and the declared reasons for machines: SAMPLE's
-conflicts come out of its bytes and claims, 267 against model27's tweaks, and putting a second machine next to it
-adds none. Applied to today's mods as a whole: One-Shot's former 77-entry list shrinks to three registry clashes and
-one declared reason (the memory overlap is gone since One-Shot 0.7 moved its pool), ACID is covered, and the track
-filter's hidden clash with One-Shot on record slot 27 becomes visible.
+model27's tools compute all of these but the cost, for machines and tweaks alike:
+- each mod declares its claims;
+- the composer, in Python and in the browser, adds the clashes to a build's conflicts;
+- the overlap check refuses two mods that can be ticked together and clash.
+
+SAMPLE's conflicts come out of its bytes and claims, 268 against model27's tweaks, and putting a second machine next
+to it adds none. A clash nobody had seen in the bytes, LFO-Plus against model27's shortcuts over the same saved slots,
+is now computed instead of written by hand. Applied to today's mods as a whole: One-Shot's former 77-entry list
+shrinks to three registry clashes and one declared reason (the memory overlap is gone since One-Shot 0.7 moved its
+pool), ACID is covered, and the track filter's hidden clash with One-Shot on record slot 27 becomes visible.
 
 ## The cost model
 
@@ -236,24 +244,29 @@ As built in model27 for added machines:
 All of this runs with Python alone, and the web flasher does the same in the browser, byte for byte. Each object
 comes placed once with its list of fix-ups. The registrar's part comes as a table per number of machines, and the
 shortcut layer and the dispatchers as two more objects placed once (model27 notes/61 and 63; no pre-linked variants
-per slot). Still to come: the registry for sound slots, cards generated from manifests.
+per slot). Since draft 0.4 the registry's saved slots, key combinations, MIDI numbers and displays come from the
+claims. Still to come: cards generated from manifests.
 
 ## Status and next steps
 
-**Built** in [model27](https://github.com/durchgemacht/model27), 2026-10-21 and 22:
+**Built** in [model27](https://github.com/durchgemacht/model27), 2026-10-21 to 23:
 - **the `machine` extension point and the manifest**, for added machines. A composer places committed objects and
   registers them through a runtime, with Python alone, and the web flasher does the same in the browser. SAMPLE
   (Cycles One-Shot 0.8) and a small reference machine were the first two packages. This is proven on the OS's own
   code in an emulator and tested on a Model:Cycles; SAMPLE is offered, tested, in model27's web flasher;
 - **the machine shortcuts, and the dispatchers** for saving sounds, the main and knob screens, the screen's tick and
   the browser. A second reference machine, REF2, uses all of them next to SAMPLE, and its manifest is the template
-  for porting a machine. This is proven in the emulator, not on the device yet.
+  for porting a machine. This is proven in the emulator, not on the device yet;
+- **the claims:** what each mod takes beyond its bytes (saved slots, key combinations, descriptors, formatters, MIDI
+  numbers, memory, displays), declared in one shape and checked. The tools compute the clashes from them, the
+  registry lists them, and the web flasher explains a computed clash in English and French.
 
 The technical record is in model27's notes
 [59](https://github.com/durchgemacht/model27/blob/main/notes/59-level-b-builder.md),
 [60](https://github.com/durchgemacht/model27/blob/main/notes/60-level-b2-relocator-runtime.md),
-[61](https://github.com/durchgemacht/model27/blob/main/notes/61-level-b3-web-flasher.md) and
-[63](https://github.com/durchgemacht/model27/blob/main/notes/63-level-b4-shortcuts-dispatchers.md).
+[61](https://github.com/durchgemacht/model27/blob/main/notes/61-level-b3-web-flasher.md),
+[63](https://github.com/durchgemacht/model27/blob/main/notes/63-level-b4-shortcuts-dispatchers.md) and
+[65](https://github.com/durchgemacht/model27/blob/main/notes/65-level-c-claims-check.md).
 
 **Checked for draft 0.1:**
 
@@ -264,15 +277,19 @@ The technical record is in model27's notes
   arrived after One-Shot's reference commit, and nothing else.
 - All 71 addresses in the draft were checked against the source files they came from.
 
-The path, in order: write the contract and the shared header; port One-Shot onto a shared multi-machine registrar
-as the first proof (done in model27); generate manifests for the existing mods from their generators (two written by
-hand so far); let the registry tool read manifests; compute conflicts and compare with the hand lists (done for
-machines in model27); add the callback tables one point at a time, each proven in emulation like a mod (done in
-model27 for the five points SAMPLE uses); last, the flasher (done in model27).
+The path, in order: write the contract and the shared header; port One-Shot onto a shared multi-machine registrar as
+the first proof (done in model27); generate manifests for the existing mods from their generators (three written by
+hand so far, and in model27 the other mods' claims in one declared file); let the registry tool read them (done in
+model27); compute conflicts and compare with the hand lists (done in model27); add the callback tables one point at a
+time, each proven in emulation like a mod (done in model27 for the five points SAMPLE uses); last, the flasher (done
+in model27).
 
 Open decisions: the cost threshold; the two unread places in the OS; the stock MIDI map; who assigns registry
 numbers. Decided in 0.2: the web flasher uses a relocator. Decided in 0.3: machine numbers stay the build's
-("projects belong to a build"); shortcuts are a fixed list; the shared points go by machine.
+("projects belong to a build"); shortcuts are a fixed list; the shared points go by machine. Decided in 0.4: the
+tweaks' claims live in one declared file; key combinations are written on a fixed vocabulary and compared in
+situations and scopes; taking a stock combination must say what it replaces; two displays on one screen are a
+warning; the web flasher explains a computed clash.
 
 ## Read more
 
@@ -280,6 +297,6 @@ numbers. Decided in 0.2: the web flasher uses a relocator. Decided in 0.3: machi
 - Modded-Cycles' notes 18 (adding a machine), 43 (MACRO), 47 (track filter), 49 and 52 (checking mods against each
   other, the register of free space), 23 and 25 (load measurements and the governor).
 - Cycles One-Shot's TECHNICAL.md, sections 3 to 6 (the machine mechanics, the audio side, sounds and records).
-- model27's notes 59 to 64: the builder as built, its proofs, the web flasher, the shortcuts and dispatchers, and
-  what users should know about projects and machines.
+- model27's notes 59 to 65: the builder as built, its proofs, the web flasher, the shortcuts and dispatchers, what
+  users should know about projects and machines, and the claims.
 - [APPLYING.md](APPLYING.md): inventory a mod (sections 1 to 11), port a machine to model27's builder (section 12).

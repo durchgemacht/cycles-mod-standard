@@ -1,6 +1,6 @@
 # Applying the standard to your mod — a checklist
 
-**Status:** draft 0.3, 2026-10-22, companion to [STANDARD.md](STANDARD.md). Written for the author of an existing
+**Status:** draft 0.4, 2026-10-23, companion to [STANDARD.md](STANDARD.md). Written for the author of an existing
 Model:Cycles mod and the AI assistant they work with. Sections 1 to 11 inventory a mod; section 12 ports a machine to
 model27's builder, step by step, with REF2 as the template.
 **Authors:** durchgemacht and Claude. **License:** MIT ([LICENSE](LICENSE)).
@@ -11,11 +11,14 @@ Much of the target exists:
 - [model27](https://github.com/durchgemacht/model27)'s composer reads manifests and registers added machines
   (STANDARD.md §8);
 - it adds the machine shortcuts and the dispatchers for the points SAMPLE uses (STANDARD.md §3.3);
-- its web flasher does the same in the browser.
+- its web flasher does the same in the browser;
+- its tools compute the clashes over saved slots, key combinations, descriptors, formatters, MIDI and memory from
+  what each mod declares, its claims, and its registry lists them (STANDARD.md §4.4, §4.5).
 
-There is still no shared header and no registry file. Do not let anyone, human or AI, invent those for your mod alone:
-three mods would get three different inventions, which is the problem the standard is meant to end. The reference
-implementation is model27's (STANDARD.md §8, §9). To move a machine onto it, follow section 12.
+There is still no shared header, and no number file: in model27 the claims stand in for one (STANDARD.md §5). Do not
+let anyone, human or AI, invent those for your mod alone: three mods would get three different inventions, which is
+the problem the standard is meant to end. The reference implementation is model27's (STANDARD.md §8, §9). To move a
+machine onto it, follow section 12.
 
 - [0. What you need](#0-what-you-need)
 - [1. Describe the mod in five lines](#1-describe-the-mod-in-five-lines)
@@ -103,7 +106,8 @@ One-Shot's sample pool, `0x43800000`–`0x46700000` since 0.7, is the example of
   and for direct reads of the audio side's copy at `0x800015ae + 66·t`.
 - A record's slot s lives at `+28 + 2·s`; slot 24 is `+76`. Search for those offsets and for hooks on the three record
   functions `0x4005afa0`, `0x4005b054`, `0x4005aecc`.
-- Write down every k and every slot the mod reads or writes.
+- Write down every k and every slot the mod reads or writes, and whether it keeps them on every sound or only on
+  its own machine's.
 
 ### 2.6 Descriptors and formatters
 
@@ -112,7 +116,9 @@ whether it replaces a knob's formatter (the `+0x20` of a parameter object, STAND
 
 ### 2.7 Gestures, menus and views
 
-- key combinations the mod reads, and the stock meaning they replace or extend;
+- key combinations the mod reads, written as STANDARD.md §4.5 writes them (the held keys, then one action), where
+  they act (the parameter pages, the grid, the keyboard, a page, a menu), and the stock meaning they replace or
+  extend;
 - menus it appends to (the Track Setup caller `0x4001c510`, STANDARD.md §3.1);
 - views it draws on: the vtable entries `0x400ffe30` (main screen) and `0x4010053c` (knob view), the redraw tick
   `0x400075f0`, or other draw hooks (level-pan-values uses `0x400081f2` and `0x4001aa4e`).
@@ -179,13 +185,15 @@ section 12 says what your methods must do for that.
 
 Compare the inventory with STANDARD.md §5 and write every collision down:
 
-- **Machine id** (§5.1): today the id is the position in the build. Record what your build assigns and in which
-  combinations it changes. Do not pick a permanent id yourself; the registry assigns it on merge.
-- **Sound slots k** (§5.2): the table says who holds k 23 to 32. **No k is free.** A collision with your slots is a
+- **Machine id** (§5.1): the id is the position in the build (option C, no permanent ids). Record what your build
+  assigns and in which combinations it changes.
+- **Sound slots k** (§5.2): the table says who holds k 23 to 32; model27's `REGISTRY.md` §6 keeps the current map.
+  **No k is free.** A collision with your slots is a
   conflict to declare; a need for a new persistent parameter is a question for the registry, not a slot to take.
 - **Record slots** (§5.3): same check; slot 18 is unused by the OS and taken by the track-filter.
-- **Gestures** (§5.4): the same combination with another meaning on the same tracks is an exclusive conflict; the
-  same combination on different machines' tracks is not.
+- **Gestures** (§5.4): the same combination with another meaning, in situations that meet, on the same tracks is
+  an exclusive conflict; the same combination on different machines' tracks is not. model27's `REGISTRY.md` §8
+  lists what is taken, and the stock combinations a mod may take only by saying what it replaces.
 - **MIDI** (§5.5): collisions with other mods; the stock map is not collected yet.
 - **Order** (§5.6): the same `order` as another package at the same chain point is a conflict; note today's number.
 
@@ -242,8 +250,10 @@ filled by hand from sections 2 to 6, so that nobody mistakes it for tool output.
   ],
   "claims": {
     "ram": [],
-    "sound_slots": [], "record_slots": [], "descriptors": [], "formatters": [],
-    "gestures": [], "views": [], "menus": [], "midi": {"cc": [], "nrpn": []}
+    "sound_slots": [], "record_slots": [], "saved": [], "descriptors": [], "formatters": [], "plock_rows": false,
+    "gestures": [{"combo": "<held keys> + <action>", "situation": "<any | params | grid | keys | page:<name> | menu:<name>>",
+                  "meaning": "<what it does>", "replaces": "<only when it takes a stock combination: what it did>"}],
+    "views": [], "midi": {"cc": [], "nrpn": []}
   },
   "_derived_by_hand": {
     "pointers": [],
@@ -298,7 +308,8 @@ tweak <path to JSON> in a Modded-Cycles checkout at <path>, release 1.56.
 Produce, as files, nothing else:
 1. inventory.md following APPLYING.md sections 1, 2, 4, 5 and 6, every statement with a file and line reference
    or the words "not verified";
-2. manifest.json following APPLYING.md section 7, the derived parts under "_derived_by_hand";
+2. manifest.json following APPLYING.md section 7, its claims in the shapes of STANDARD.md §4.5, the derived parts
+   under "_derived_by_hand";
 3. if the mod is a machine, deviations.md following section 3;
 4. questions.md with anything that fits no extension point, needs a registry number, or could not be measured.
 
@@ -363,12 +374,16 @@ REF2's `refmachine2.c` is all of it in 150 lines.
 Start from REF2's (STANDARD.md §7.4). Then:
 - `id` is your folder's name;
 - `order` comes from the maintainer;
+- `claims` say what the machine keeps and answers beyond its writes, in the shapes of STANDARD.md §4.5, on its own
+  machine's tracks by default: a shortcut's k and record slot and its RETRIG combination in `params` (as REF2's),
+  the views it draws on, and its RAM, the same ranges as its `memory.ram` entries;
 - `build` names your sources, your object, your patch points, `update`/`render`, and in `keep` every function a hook
   or vtable entry points at;
 - the `machine` entry gives four knobs (long name, short name of 4 characters at most, default, and `min`/`max` if not
   0–127), the picture of a stock machine (`image`, 0–5) and DECAY's default.
 
-*Check:* `python3 tools/compose.py --cycles <official file> --machines <id> --compare-ld` composes your machine alone,
+*Check:* `python3 tools/claims.py --check` finds the claims well formed and in line with the uses.
+`python3 tools/compose.py --cycles <official file> --machines <id> --compare-ld` composes your machine alone,
 identical to `ld`. Then compose it with `sampler` before and after it.
 
 ### 12.4 A shortcut (optional)
@@ -420,7 +435,7 @@ Copy the tests and point them at your machine:
 
 They run the OS's own code in Unicorn. Then:
 - `tools/webcompose_check.sh <official file>`: the web flasher composes your machine as the Python composer does;
-- `check_overlaps.py` and `registry.py --check`;
+- `claims.py --check`, `check_overlaps.py` (your claims against every mod's) and `registry.py --check`;
 - the maintainer's device.
 
 ### 12.7 Not allowed
@@ -442,7 +457,8 @@ tools/machines/refmachine2/ (manifest.json, refmachine2.c, ref2_view.c, ref2_ope
 Port the machine in <path to its sources> to a package in model27's tools/machines/<id>/, following APPLYING.md
 section 12 step by step: the object (12.1), the voice (12.2), the manifest (12.3), a shortcut only if the machine
 needs an extra value (12.4), and only the points of 12.5 the machine already uses, each method checking its own
-track. Write the generator and the proofs by copying model27's for REF2. Run every check named in section 12 and
+track; declare its claims as STANDARD.md §4.5 shapes them. Write the generator and the proofs by copying model27's
+for REF2. Run every check named in section 12 and
 report each result; where one fails, stop and say why.
 
 Do not invent shortcuts, sound or record slots, points or dispatchers. Do not change model27's composer, its parts or

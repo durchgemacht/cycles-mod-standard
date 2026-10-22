@@ -1,14 +1,26 @@
-# Cycles Mod Standard — draft 0.1
+# Cycles Mod Standard — draft 0.2
 
-**Status:** draft, 2026-10-21, not published. Nothing in this document is implemented yet.
+**Status:** draft 0.2, 2026-10-22, public. Draft 0.1 (2026-10-21) described a target only. Since then
+[model27](https://github.com/durchgemacht/model27) has built the `machine` point of Level B and the manifest of
+Level C for added machines: a composer that places committed objects and registers them through a runtime, with no
+toolchain at build time, tested on a Model:Cycles on 2026-10-22 (§8). The other extension points, the number
+registry, the dispatcher tables and the shared header are still proposals.
 **Authors:** durchgemacht and Claude.
+**License:** MIT ([LICENSE](LICENSE)).
 **Scope:** mods for the Elektron Model:Cycles OS 1.13 that are built from the user's own official file with
 Modded-Cycles' tools. Everything here is read from the code of Modded-Cycles (release 1.56, fork commit `95b63b7`),
-Cycles One-Shot 0.6 and the technical notes both projects keep about the OS. Where a fact was observed but not
-followed through in the OS, it says so. Addresses are virtual addresses of the unpacked MAIN OS (base `0x40000400`).
+Cycles One-Shot 0.6 to 0.8, model27 and the technical notes the projects keep about the OS. Where a fact was observed
+but not followed through in the OS, it says so. Addresses are virtual addresses of the unpacked MAIN OS (base
+`0x40000400`).
 
 **Applying it to an existing mod:** [APPLYING.md](APPLYING.md) is the checklist for authors and their AI
 assistants. It produces an inventory, a manifest, the collisions and the deviations of a mod, not a rewrite.
+
+**Changes from 0.1:** the status above; §3.3 the machine table as model27 runs it; §4.2 to §4.4 the manifest as
+model27's composer reads it (the object's recipe, patch points as symbols, hooks inside `uses`) and what it computes;
+§5.1 and §5.6 model27's numbering and order; §7.1 SAMPLE's manifest as built (One-Shot 0.8); §8 the builder as
+built and the web flasher's choice; §9 what is done; §10 that choice taken; One-Shot's sample pool above the payload
+since 0.7 (§2.7, §3.1). The rest is as in 0.1.
 
 - [0. Why, and what this is not](#0-why-and-what-this-is-not)
 - [1. Terms](#1-terms)
@@ -172,9 +184,9 @@ A **core machine** uses the machine extension point and nothing else. It:
 
 Anything beyond 2.6 is an extension and goes through an extension point of section 3: a gesture (MACRO's
 FUNC + PITCH lo-fi, ACID's PUNCH as waveform switch), a view (One-Shot's waveform screen), the browser (One-Shot
-opens sample files), sound records (One-Shot's sample key), the file system, a memory range (One-Shot's 63 MB sample
-pool). A machine that re-reads a stock parameter (ACID: DECAY also drives the filter envelope, PUNCH is a switch)
-declares that in `stock_behaviour.changes`, because the stock meaning is lost on its tracks.
+opens sample files), sound records (One-Shot's sample key), the file system, a memory range (One-Shot's sample
+pool, 47 MB since 0.7). A machine that re-reads a stock parameter (ACID: DECAY also drives the filter envelope,
+PUNCH is a switch) declares that in `stock_behaviour.changes`, because the stock meaning is lost on its tracks.
 
 ### 2.8 The shared header
 
@@ -219,7 +231,7 @@ and checked byte for byte by `check_overlaps.py`, as today.
 | `midi` | CC and NRPN numbers a package listens to | **registry** | — | track-filter (CC 74, 71; NRPN 1:20, 1:21) |
 | `memory.mask` | freed sprite masks (notes/52): 164 masks, 35 960 bytes; 113 free (18 152 bytes) at release 1.56 | **allocation** by `registry.py` and `sprites.redirect_write` | a mask is redirected in the same tweak that writes it | arp, chord-keys, lfo-plus, track-filter, trig-hold, … |
 | `memory.payload` | code copied at boot from the end of the image to RAM: `0x43000000` (alone) or `0x46700000` (with Model-TG), boot hook at `0x400004b2` (the BSS clear) through a stub in the cave `0x4016cae8` | **allocation**: the builder lays packages out one after the other and fills the copy list | the image must end below `0x40200000`; the stock image ends at `0x401aa140` | every added machine, One-Shot |
-| `memory.ram` | RAM the stock OS leaves unused: `0x42800000`–`0x46700000` (the Model:Samples keeps its sample pool there) | **allocation** | the alone payload window `0x43000000` lies inside it | One-Shot's sample pool (all of it) |
+| `memory.ram` | RAM the stock OS leaves unused: `0x42800000`–`0x46700000` (the Model:Samples keeps its sample pool there) | **allocation** | the alone payload window `0x43000000` lies inside it: a claim must stay clear of the build's payload (model27's composer refuses a layout that runs into one) | One-Shot's sample pool, `0x43800000`–`0x46700000` since 0.7, above the alone payload |
 
 ### 3.2 Composition rules
 
@@ -242,7 +254,8 @@ table and restores. The builder only writes addresses into the table. Consequenc
 - the register contract of a point (the H3 contract above) is kept in one place, not in every mod;
 - a package that is not installed is simply not in the table.
 
-The machine table already works like this; this generalises it.
+The machine table already works like this, and model27's registrar runtime does it literally for the `machine`
+point: code assembled once, a parameter block the builder fills per build (§8). This generalises it.
 
 ### 3.4 Limits a builder enforces
 
@@ -272,18 +285,34 @@ The machine table already works like this; this generalises it.
 
 | Field | Declared / derived | Content |
 |---|---|---|
-| `schema` | declared | `"cycles-mod/0.1"` |
-| `id`, `version`, `name`, `description` | declared | as on the flasher card |
+| `schema` | declared | `"cycles-mod/0.1"`: the name model27's composer reads; draft 0.2 describes that schema as built, and a change to it gets a new name |
+| `id`, `version`, `name`, `description`, `source` | declared | as on the flasher card; `id` is the package's folder name, `source` the URL of the sources at the pinned commit |
 | `license`, `credit` | declared | as on the flasher card (`credit: {kind, who, repo}`), the license file next to the sources |
 | `device`, `os` | declared | `"Model:Cycles"`, `"1.13"` |
 | `order` | declared | the package's place among chains (today's tweak `order`); section 5.6 |
-| `build` | declared | `objects` (relocatable ELF files), `symbols` (entry points the points need), `patch_points` (data words the builder fills: a machine index, a descriptor base) |
-| `uses` | declared | one object per extension point, with that point's own fields (section 4.4) |
-| `claims` | derived + declared | `hooks` (address, stock bytes, why), `masks`, `payload` (size of code, tables, BSS), `ram`, `sound_slots`, `record_slots`, `descriptors`, `midi`, `gestures`, `views` |
+| `build` | declared | the object's recipe (`sources`, `include`, `cflags`, `defines`); `objects`: one relocatable ELF file, the `ld -r` of the sources, committed; `symbols`: `update` and `render`; `keep`: the other symbols the writes need (hooks, view methods); `patch_points`: `{symbol, kind}`, an undefined symbol whose address the builder sets (kinds `machine_index`, `descriptor_base`) |
+| `uses` | declared | one object per extension point, with that point's own fields; a hook as `hook: {at, stock, op, symbol}` (`op` is `jsr` or `jmp`), a vtable entry as `vtable: {at, stock_ptr, symbol}`, each with `why`. The builder checks the stock bytes against the user's file and writes the hook |
+| `claims` | declared | `sound_slots`, `record_slots`, `ram`, `formatters`, `descriptors`, `midi`, `gestures`, `views`. Hooks are in `uses`; masks, payload and sizes are derived into the build's tweak and `REGISTRY.md`, not written in the manifest |
 | `cost` | declared, measured | section 6 |
 | `stock_behaviour` | declared | `changes`: what a stock function or gesture no longer does on this package's tracks; `fixes`: stock bugs it corrects; `unchanged`: what was proven bit for bit |
 | `compat` | declared | `built_against` (Modded-Cycles commits the build was verified with), `requires` (packages it needs), `conflicts_declared` (reasons a tool cannot compute, with text) |
-| `tests` | declared | `emulation` (script, date), `hardware` (date, by whom), `status` (`tested` or `experimental`, with the flasher's rule: tested only after the maintainer's own device) |
+| `tests` | declared | `emulation` (tool or script, date, which build), `hardware` (date, by whom, which build), `status` (`tested` or `experimental`, with the flasher's rule: tested only after the maintainer's own device) |
+
+**The object and the patch points, as built.** A package ships one relocatable m68k ELF object, the `ld -r` of its
+sources compiled with `-fno-pic -fno-common -ffunction-sections -fdata-sections`. Such an object carries only
+absolute 32-bit relocations (`R_68K_32`), so a builder places it without a linker: model27's `tools/relocate.py`
+keeps what `update`, `render` and `keep` reach, lays the sections out in the linker script's order and writes each
+relocation, byte for byte what `ld` gives ([model27 notes/60](https://github.com/durchgemacht/model27/blob/main/notes/60-level-b2-relocator-runtime.md)
+§3, §9). A value that depends on the build is an undefined symbol whose *address* is the value, resolved like
+`ld --defsym`, so that one committed object serves every build:
+
+```c
+extern char cm_machine_index[];                     /* the composer gives it the machine's index */
+#define SAMPLE_MACHINE ((int)(long)cm_machine_index)
+```
+
+The package's generator rebuilds the object with the pinned compiler and compares it with the committed one
+(`--check`).
 
 ### 4.3 What the builder derives from a manifest
 
@@ -291,6 +320,9 @@ The machine table already works like this; this generalises it.
 - the flasher card (`label`, `desc`, `status`, `credit`, `license`, `excludes` from the computed conflicts);
 - the registry entries (`REGISTRY.md` §1–§7) and the number-registry check;
 - the build report: index assigned to each machine, descriptor numbers, payload addresses, cost sum.
+
+In model27 today the composer derives the tweak JSON and the build report; the flasher card and the registry entries
+still come from that tweak JSON through the existing tools (`gen_flasher_tweaks.py`, `registry.py`).
 
 ### 4.4 Computed conflicts
 
@@ -307,6 +339,10 @@ Two packages conflict when the builder finds any of:
 A package may still list `conflicts_declared` for reasons tools cannot see ("both re-number p-lock rows for
 k ≥ 23", notes/56 §3.6): the text is shown on the flasher as the reason, as `clashWhy` does today.
 
+model27's composer computes rules 1, 4 (other payloads and the packages' RAM claims) and 7 today, against every
+tweak of its folder: SAMPLE alone conflicts with 267 tweaks, SAMPLE with model27's reference machine with 268, the
+union of the two packages' own lists (§7.1).
+
 ## 5. The number registry
 
 Numbers that land in users' data cannot be assigned by the builder: a sound stores its machine at `+38`, its
@@ -320,7 +356,8 @@ the builder refuses a number that is not in it.
 the first added machine is 7 (`TG_FIRST`); without, the first added machine is 6. Added machines are numbered in the
 build's order: the Syntakt engines, then MACRO, then ACID last (the flasher cards say so). SAMPLE and sdvintage-7th
 are 6 in their own builds; sdvintage-exact replaces SNARE at 1. **So a machine's id depends on the combination, and
-a project does not move between two builds.**
+a project does not move between two builds.** model27's composer numbers machines in the order it is given, SAMPLE
+first, so SAMPLE is 6 in every build there; permanent ids for every package wait for the decision below.
 
 **Options:**
 
@@ -389,9 +426,10 @@ other packages.
 
 ### 5.6 Tweak order numbers
 
-`order` sorts the tweaks and the chains. Today: 25 MACRO, 26 ACID, **26 One-Shot** (a clash the checker reports as
-"two payloads at the same order"), 48 track-filter, 60 lfo-plus. Proposal: machines 20–39, track-chain stages
-40–59, UI and sequencer 60–79, MIDI 80–89, cosmetic 90–99, assigned with the id.
+`order` sorts the tweaks and the chains. Today: 25 MACRO, 26 ACID, **26 One-Shot** in its own repository (a clash the
+checker reports as "two payloads at the same order"; model27 builds it at 27), 48 track-filter, 60 lfo-plus.
+Proposal: machines 20–39, track-chain stages 40–59, UI and sequencer 60–79, MIDI 80–89, cosmetic 90–99, assigned
+with the id.
 
 ### 5.7 Masks, caves and payload windows
 
@@ -432,85 +470,111 @@ voices of the heaviest machine plus every stage) and warns above a threshold to 
 
 ## 7. Examples: SAMPLE, MACRO, track-filter
 
-The three manifests below describe the mods as they are in the repositories today (One-Shot 0.6, Modded-Cycles
-1.56). Values marked `derived` are what the tools would compute; they are shown so that the examples can be checked
-against `build/sampler-tweak.json`, `25-macro.json` and `48-track-filter.json`.
+§7.1 is SAMPLE's manifest as model27's composer reads it (One-Shot 0.8). §7.2 and §7.3 describe MACRO and the track
+filter as in Modded-Cycles 1.56, in the shape of draft 0.1: nobody has packaged them yet, their hooks are listed under
+`claims` instead of in `uses` (§4.2), and values marked `derived` are what the tools would compute, shown so that
+they can be checked against `25-macro.json` and `48-track-filter.json`.
 
-### 7.1 SAMPLE (Cycles One-Shot 0.6)
+### 7.1 SAMPLE (Cycles One-Shot 0.8, as built in model27)
+
+model27's [`tools/machines/sampler/manifest.json`](https://github.com/durchgemacht/model27/blob/main/tools/machines/sampler/manifest.json)
+at `a279f3f`, unchanged:
 
 ```json
 {
-  "schema": "cycles-mod/0.1",
-  "id": "sampler",
-  "version": "0.6",
-  "name": "SAMPLE machine: one-shot sampler for samples on the +Drive",
-  "description": "7th machine. Plays a sample from the +Drive once per trig: 6-tap polyphase at 96 kHz, the stock decimator, the amp chain set up like TONE, then the Model:Samples' filter. The sample is chosen in the PRESET browser and saved with the sound.",
-  "license": "MIT",
-  "credit": {"kind": "own", "who": "durchgemacht and Claude", "repo": "durchgemacht/cycles-one-shot"},
-  "device": "Model:Cycles", "os": "1.13",
-  "order": 26,
-  "build": {
-    "objects": ["sampler.o"],
-    "symbols": {"update": "sampler_update", "render": "sampler_render"},
-    "patch_points": [{"symbol": "SAMPLE_MACHINE", "kind": "machine_index"}, {"symbol": "DESC_START", "kind": "descriptor_base"}]
-  },
-  "uses": [
-    {"point": "machine", "image": 4, "decay_default": 127,
-     "knobs": [
-       {"long": "Start",  "short": "STRT", "default": 0,   "min": 0, "max": 120, "format": "int"},
-       {"long": "Length", "short": "LEN",  "default": 120, "min": 0, "max": 120, "format": "int"},
-       {"long": "Cutoff", "short": "FREQ", "default": 64,  "format": "own", "format_note": "shown as -64 ... 63, 0 = off"},
-       {"long": "Reso",   "short": "RESO", "default": 0,   "format": "int"}]},
-    {"point": "browser.open", "symbol": "smp_hook_open", "takes": "sample files on a SAMPLE track; presets pass through"},
-    {"point": "sound.record", "after_save": "smp_after_save", "after_load": "smp_after_load"},
-    {"point": "screen.tick", "symbol": "smp_hook_tick", "note": "loads and frees samples, 128 KB per tick, own lock"},
-    {"point": "view.main", "symbol": "smp_main_draw", "scope": "SAMPLE tracks", "calls_next": true},
-    {"point": "view.knob", "symbol": "smp_knob_draw", "scope": "SAMPLE tracks", "calls_next": true},
-    {"point": "memory.ram", "range": ["0x42800000", "0x46700000"], "why": "sample pool, 63 MB"}
+ "schema": "cycles-mod/0.1",
+ "id": "sampler",
+ "version": "0.8",
+ "name": "SAMPLE machine: one-shot sampler for samples on the +Drive (Cycles One-Shot 0.8)",
+ "description": "Plays a sample from the +Drive once per trig: 6-tap polyphase at 96 kHz, the stock decimator, the amp chain set up like TONE, then the Model:Samples' filter. The sample is chosen in the PRESET browser and saved with the sound; the main screen shows its waveform.",
+ "license": "MIT",
+ "credit": {"kind": "own", "who": "durchgemacht and Claude", "repo": "durchgemacht/cycles-one-shot"},
+ "source": "https://github.com/durchgemacht/cycles-one-shot/tree/f28ef2f81dd0a4872705c9fb6021462eb5f0bdbf",
+ "device": "Model:Cycles",
+ "os": "1.13",
+ "order": 27,
+ "build": {
+  "sources": ["src/smp_core.c", "src/smp_coeffs.c", "src/smp_filter.c", "src/smp_filter_tab.c", "src/smp_filter_cf.S",
+              "machine/sampler.c", "machine/pool.c", "machine/view.c", "machine/hooks.S"],
+  "include": ["src", "machine"],
+  "cflags": ["-std=c99", "-mcpu=54418", "-O2", "-ffreestanding", "-fno-builtin", "-fno-tree-loop-distribute-patterns",
+             "-nostdlib", "-fno-pic", "-fno-common", "-ffunction-sections", "-fdata-sections", "-Wall", "-Wextra",
+             "-Werror"],
+  "defines": {"CUTOFF_OBJECT": "53", "POOL_BASE": "0x43800000u", "POOL_LIMIT": "0x46700000u", "CM_SYMBOLS": "1"},
+  "objects": ["sampler.o"],
+  "patch_points": [
+   {"symbol": "cm_machine_index", "kind": "machine_index"},
+   {"symbol": "cm_descriptor_base", "kind": "descriptor_base"}
   ],
-  "claims": {
-    "_derived": "hooks, masks and payload come from the objects and the build",
-    "hooks": [
-      {"at": "0x400a6602", "stock": "4eb9400a3052", "point": "browser.open"},
-      {"at": "0x4005afa0", "stock": "4feffff448d71c00", "point": "sound.record"},
-      {"at": "0x4005b054", "stock": "4feffff448d71c00", "point": "sound.record"},
-      {"at": "0x4005aecc", "stock": "4feffff448d71c00", "point": "sound.record"},
-      {"at": "0x400075f0", "stock": "4eb940076be4", "point": "screen.tick"},
-      {"at": "0x400ffe30", "stock_ptr": "0x4001b22a", "point": "view.main"},
-      {"at": "0x4010053c", "stock_ptr": "0x4001e40a", "point": "view.knob"}],
-    "payload": {"code_and_tables": 30503, "bss": 73784, "image_bytes": 35820, "window": "with-tg"},
-    "sound_slots": [25, 26, 27],
-    "record_slots": [24, 25, 26, 27],
-    "formatters": [{"knob": "Cutoff", "replaces": "0x400456c8"}],
-    "fs": ["0x4007de78", "0x4007baaa", "0x4007dc30"]
-  },
-  "cost": {
-    "emulation": {"status": "not measured with mcengine.py; One-Shot's README states about 800 instructions per track and block for the filter alone"},
-    "device": {"status": "not measured"}
-  },
-  "stock_behaviour": {
-    "changes": ["the filter runs inside the machine, before Volume + Dist; the Model:Samples has it after"],
-    "unchanged": ["at Cutoff 0 the track is untouched bit for bit", "presets on other machines load as before", "projects of stock sounds unchanged"]
-  },
-  "compat": {
-    "built_against": ["modded-cycles 6a9742a", "modded-cycles 95b63b7"],
-    "conflicts_declared": [{"with": "sample-preview", "why": "plays sample files from the same browser and needs Model-TG"}]
-  },
-  "tests": {"emulation": {"tool": "digiemu", "date": "2026-10-20"}, "hardware": {"date": "2026-10-20", "by": "author"}, "status": "experimental"}
+  "symbols": {"update": "sampler_update", "render": "sampler_render"},
+  "keep": ["smp_hook_open", "smp_hook_save2", "smp_hook_save1", "smp_hook_load", "smp_hook_tick", "smp_main_draw", "smp_knob_draw"]
+ },
+ "uses": [
+  {"point": "machine", "name": "SAMPLE", "image": 4, "decay_default": 127,
+   "knobs": [
+    {"long": "Start", "short": "STRT", "default": 0, "min": 0, "max": 120},
+    {"long": "Length", "short": "LEN", "default": 120, "min": 0, "max": 120},
+    {"long": "Cutoff", "short": "FREQ", "default": 64},
+    {"long": "Reso", "short": "RESO", "default": 0}]},
+  {"point": "browser.open", "hook": {"at": "0x400a6602", "stock": "4eb9400a3052", "op": "jsr", "symbol": "smp_hook_open"},
+   "why": "the browser reads the opened file: a sample file on a SAMPLE track names the sample instead"},
+  {"point": "sound.record", "hook": {"at": "0x4005afa0", "stock": "4feffff448d71c00", "op": "jmp", "symbol": "smp_hook_save2"},
+   "why": "sound to record, version 2: the sample's key into record slots 24..27"},
+  {"point": "sound.record", "hook": {"at": "0x4005b054", "stock": "4feffff448d71c00", "op": "jmp", "symbol": "smp_hook_save1"},
+   "why": "sound to record, version 1"},
+  {"point": "sound.record", "hook": {"at": "0x4005aecc", "stock": "4feffff448d71c00", "op": "jmp", "symbol": "smp_hook_load"},
+   "why": "record to sound: the key back"},
+  {"point": "screen.tick", "hook": {"at": "0x400075f0", "stock": "4eb940076be4", "op": "jsr", "symbol": "smp_hook_tick"},
+   "why": "the screen's redraw, about 30 Hz: loads and frees samples"},
+  {"point": "view.main", "vtable": {"at": "0x400ffe30", "stock_ptr": "0x4001b22a", "symbol": "smp_main_draw"},
+   "why": "MainScreenView's draw method: the waveform on a SAMPLE track"},
+  {"point": "view.knob", "vtable": {"at": "0x4010053c", "stock_ptr": "0x4001e40a", "symbol": "smp_knob_draw"},
+   "why": "the knob view's draw method"},
+  {"point": "memory.ram", "range": ["0x43800000", "0x46700000"], "why": "the sample pool, 47 MB"}
+ ],
+ "claims": {
+  "sound_slots": [25, 26, 27],
+  "record_slots": [24, 25, 26, 27],
+  "ram": [["0x43800000", "0x46700000"]],
+  "formatters": [{"knob": "Cutoff", "object": 53, "replaces": "0x400456c8"}],
+  "gestures": [],
+  "views": ["main", "knob"]
+ },
+ "cost": {
+  "emulation": {"status": "not measured with mcengine.py; One-Shot's README states about 800 instructions per track and block for the filter alone"},
+  "device": {"status": "not measured"}
+ },
+ "stock_behaviour": {
+  "changes": ["the filter runs inside the machine, before Volume + Dist; the Model:Samples has it after"],
+  "fixes": [],
+  "unchanged": ["at Cutoff 0 the track is untouched bit for bit", "presets on other machines load as before"]
+ },
+ "compat": {
+  "built_against": ["modded-cycles 6a9742a", "modded-cycles 95b63b7", "model27"],
+  "requires": [],
+  "conflicts_declared": [{"with": "sample-preview", "why": "plays sample files from the same browser and needs Model-TG"},
+                         {"with": "sample-preview-st", "why": "the same, on Model-TG's base"}]
+ },
+ "tests": {"emulation": {"tool": "digiemu", "date": "2026-10-22", "build": "the composed object registered by the registrar runtime, alone (as the web flasher builds it) and with refmachine"},
+           "hardware": {"date": "2026-10-22", "by": "maintainer", "build": "SAMPLE alone as the web flasher builds it (notes/60 §13) and as machine 6 next to refmachine (the pair, notes/60 §12); One-Shot's own build (0.7 = 0.8 without CM_SYMBOLS) on 2026-10-21 by the author"},
+           "status": "tested"}
 }
 ```
 
-**What the builder would compute from this**, compared with today's hand-written list of 77 ids:
+**What the composer computes from it** (model27, 2026-10-22):
 
-- `machine`: no conflict with MACRO or ACID *once SAMPLE is built through the shared registrar*; today it has its own
-  copy of the tables at Model-TG's window, so every other machine package conflicts;
-- `sound.record`: a chain with track-filter and Model-TG instead of a conflict;
-- `sound_slots` 25–27 against Model-TG 23–27: **registry conflict**, stays;
-- `record_slots` 27 against track-filter 27: **registry conflict**, new, hidden today;
-- `memory.ram` against the alone payload window `0x43000000`: **conflict with every machine built alone** until the
-  pool is cut to start above the window or the builder places the window elsewhere;
-- `view.main` with level-pan-values: both draw on the main screen; flagged as "order needed", not a conflict;
-- ACID and all `*-acid` combinations: covered by the rules above instead of missing from a list.
+- machine 6, descriptors 76 to 80; code and tables, 30 527 bytes, at `0x43000000`; variables, 73 784 bytes, from
+  `0x43036000`; the registrar's parameter block for one machine. 123 writes (116 of the registration, 7 of the
+  package's hooks and vtable entries), 36 096 bytes added to the image: model27's `27-sampler.json`;
+- 267 conflicts against model27's tweak folder: MACRO, ACID and the Syntakt engines (the same machine tables, other
+  bytes), Model-TG and the track filter (the same sound-record hooks), sample preview (declared), the other
+  machine-adding tweaks;
+- with model27's reference machine next to it as machine 7: 268, the union of the two packages' lists. Composing
+  adds no conflict;
+- `memory.ram` starts above the build's payload (`0x43000000`–`0x43048038` alone): since One-Shot 0.7 the pool no
+  longer clashes with the payload window;
+- at the registry level, once it exists (§5): sound slots 25–27 against Model-TG's 23–27 and record slot 27 against
+  the track filter. Today rule 1 (the same sound-record hooks) already keeps SAMPLE apart from both.
 
 ### 7.2 MACRO (Modded-Cycles 1.56)
 
@@ -615,16 +679,40 @@ conflict), One-Shot's loop/reverse study (k 28 bits: registry).
 
 ## 8. Builder and web flasher
 
-- **Offline builder** (Python, as `machine/build.py` and the generators today): reads the manifests of the chosen
-  packages, assigns machine ids from the registry, lays out payloads, links the objects at their addresses with the
-  m68k toolchain, fills the dispatcher tables, applies the writes with `build.py`'s functions, writes the tweak JSON,
-  the card and the report.
-- **Web flasher**: it cannot run a linker. Two ways, to be decided (section 10):
-  - **a small relocator in JavaScript** for absolute 32-bit references only (`R_68K_32`), which is what code compiled
-    with `-fno-pic` produces; the tweak format's `reloc` list is already a special case of this;
-  - **pre-linked variants per slot**: a machine shipped as up to 8 objects, one per possible id and payload slot, so
-    that N machines cost N × 8 files instead of 2^N combinations.
-  In both cases the dispatcher tables are plain numbers the flasher writes.
+**The target**, as in 0.1: an offline builder in Python reads the manifests of the chosen packages, assigns machine
+ids from the registry, lays out payloads, places the objects at their addresses, fills the dispatcher tables,
+applies the writes with `build.py`'s functions and writes the tweak JSON, the card and the report; the web flasher
+does the same in the browser.
+
+**As built in model27** ([notes/59](https://github.com/durchgemacht/model27/blob/main/notes/59-level-b-builder.md),
+[notes/60](https://github.com/durchgemacht/model27/blob/main/notes/60-level-b2-relocator-runtime.md), increments B1
+and B2, tested on a Model:Cycles on 2026-10-22):
+
+- **The composer**, `tools/compose.py`, reads the manifests of the chosen packages in the order given, places each
+  committed object with `tools/relocate.py` (§4.2), lays code and tables out from `0x43000000` and variables from
+  `0x43036000`, registers all machines at once, writes each package's hooks and vtable entries, computes the
+  conflicts (§4.4) and emits one tweak per selection, which `tools/build.py` applies like any other. It needs
+  `python3` and the user's official file, no compiler and no assembler. Not yet: registry ids, dispatcher tables,
+  cards.
+- **The registrar runtime**, `tools/machines/registrar/registrar.S`: the detours of the added machines (knob rows,
+  records, the machine of a descriptor, the MACHINES page) as 826 bytes of code assembled once at `0x43033000`,
+  reading a 128-byte parameter block at `0x43033780` that the composer fills per build (the number of machines, the
+  first index, and for each machine its picture, first descriptor and record). The boot hook's stub is a committed
+  template whose three immediates and segment table the composer fills. Until then these detours were generated and
+  assembled per build.
+- **Proofs:** the relocator against `ld`, byte for byte; the runtime against the per-build detours (the same writes
+  except the jump sites); the digiemu emulator; a Model:Cycles, SAMPLE alone and SAMPLE with a second machine. A
+  Unicorn proof on the OS's own code is still to come.
+- **The generators** need the toolchain: they compile and commit the objects, the runtime and the stub template, and
+  check them with `--check`.
+
+**The web flasher, decided:** the relocator, in a form that needs no ELF reader in the browser
+([model27 notes/61](https://github.com/durchgemacht/model27/blob/main/notes/61-level-b3-web-flasher.md), planned,
+increment B3). Each object reaches the page placed once at offset 0, as code plus a list of relocations (position;
+base: the code, the variables or a patch point; addend); the registrar's writes reach it as a frame per number of
+machines, computed by the Python registrar. The page fills in what depends on the packages, and every composition it
+can make is checked against the Python composer's bytes. Pre-linked variants per slot are not needed.
+
 - **Verification stays as it is:** `check_overlaps.py` byte for byte, `ref_mainos.py` for every card alone and every
   pair, `registry.py --check`, each package's emulation proof. The computed conflicts are an *additional* check in
   front of them, not a replacement.
@@ -632,21 +720,26 @@ conflict), One-Shot's loop/reverse study (k 28 bits: registry).
 ## 9. Migration path
 
 1. **Write the contract and the header** (level A) from the existing identical comments and `os.h`; no firmware
-   changes. Every machine author can adopt it at once.
+   changes. Every machine author can adopt it at once. *Not started.*
 2. **Port One-Shot onto `gen_macro.added_machine`**: the first proof that an external machine goes through the
    shared registrar; it also removes SAMPLE's exclusion of MACRO, ACID and the Syntakt engines. Needs One-Shot's
    `SAMPLE_MACHINE` and `DESC_START` to become patch points and the sample pool to start above the alone payload
-   window, or the window to move.
+   window, or the window to move. *Done in model27:* One-Shot 0.7 moved the pool above the window, 0.8 made the two
+   values patch points, and model27's composer and registrar runtime took the place of `added_machine` for packages
+   (§8). SAMPLE still excludes MACRO, ACID and the Syntakt engines there, because they are not packaged.
 3. **Generate manifests for the existing mods** from their generators: the derived part is already computed there;
    the declared part (gestures, scopes, stock-behaviour changes, tests) is copied from the notes and the cards.
-   Authors can start by hand with [APPLYING.md](APPLYING.md).
+   Authors can start by hand with [APPLYING.md](APPLYING.md). *Started:* SAMPLE and model27's reference machine have
+   manifests, written by hand.
 4. **Teach `registry.py` to read manifests** for §6 (saved data) and the gestures, instead of the notes; add the
-   number registry file and its check.
+   number registry file and its check. *Not started.*
 5. **Compute conflicts** and compare with the declared lists; keep only the declared ones that have a reason tools
-   cannot see.
+   cannot see. *Started:* model27's composer computes rules 1, 4 and 7 for machines (§4.4).
 6. **Dispatcher tables** for `sound.record`, `screen.tick`, `view.*` and `menu.track_setup`, one at a time, each
-   proven in emulation like a mod.
-7. **The flasher** builds cards from manifests and fills tables; the relocator or the per-slot variants come last.
+   proven in emulation like a mod. *Not started*; the machine table is a runtime with a parameter block in model27
+   (§8).
+7. **The flasher** builds cards from manifests and fills tables, with the relocator of §8. *Planned* in model27
+   (notes/61).
 
 ## 10. Open decisions
 
@@ -654,10 +747,11 @@ conflict), One-Shot's loop/reverse study (k 28 bits: registry).
 - The cost threshold the builder warns at, and whether a chain stage counts once or per track.
 - The two unread places: `track.post_voice`'s contract and the `fx.bus` location; the sound bytes `+86`–`+99`.
 - The stock MIDI map for the `midi` registry.
-- Web flasher: relocator or per-slot variants.
 - Who assigns registry numbers: the maintainer on merge, as with Modded-Cycles' "tested" status.
-- Whether the shared header is a separate repository that One-Shot and Modded-Cycles both depend on, or lives in
-  Modded-Cycles' `tools/machines/`.
+- Whether the shared header is a separate repository that One-Shot and the builders depend on, or lives in a
+  builder's `tools/machines/` (Modded-Cycles', model27's).
+
+Decided in 0.2: the web flasher uses the relocator, with objects placed once (§8).
 
 ## 11. Sources
 
@@ -677,3 +771,7 @@ Read for this draft, all local copies:
   (SHA-256 `7d9a73bf…`); `tools/build.py -t sampler` with `sampler-tweak.json` as a plain tweak file gives the same
   image; `check_overlaps.py` with the sampler added reports 95 undeclared partners, all machine-adding tweaks newer
   than `6a9742a`, and no other.
+- For 0.2, [model27](https://github.com/durchgemacht/model27) at `a279f3f`: `tools/compose.py`, `tools/relocate.py`,
+  `tools/gen_registrar.py`, `tools/machines/registrar/registrar.S` and `registrar.json`, `tools/machines/sampler/`
+  (manifest, `sampler.o`), `tools/machines/refmachine/`, `tweaks/model-cycles_OS1.13/27-sampler.json`; notes 59, 60
+  and 61. Cycles One-Shot 0.7 and 0.8 (`f28ef2f`): the pool's range and the patch points (`pool.h`, `view.c`).

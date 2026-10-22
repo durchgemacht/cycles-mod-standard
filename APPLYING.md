@@ -1,15 +1,15 @@
 # Applying the standard to your mod — a checklist
 
-**Status:** draft 0.1, 2026-10-21, companion to [STANDARD.md](STANDARD.md). Written for the author of an existing
+**Status:** draft 0.2, 2026-10-22, companion to [STANDARD.md](STANDARD.md). Written for the author of an existing
 Model:Cycles mod and the AI assistant they work with.
-**Authors:** durchgemacht and Claude.
+**Authors:** durchgemacht and Claude. **License:** MIT ([LICENSE](LICENSE)).
 
 **What this produces:** an *inventory* of what the mod touches, a *manifest*, a list of *collisions* with other
-mods and the registry, and a list of *deviations* from the machine contract. **It does not produce a rewrite.** The
-standard describes a target that does not exist yet: there is no shared header, no registrar that reads manifests,
-no registry file, no dispatcher tables. Do not let anyone, human or AI, invent those for your mod alone; three
-mods would get three different inventions, which is the problem the standard is meant to end. The reference
-implementation comes from the standard's own repository first (STANDARD.md §9).
+mods and the registry, and a list of *deviations* from the machine contract. **It does not produce a rewrite.** Part of
+the target exists: [model27](https://github.com/durchgemacht/model27)'s composer reads manifests and registers added
+machines (STANDARD.md §8). There is still no shared header, no registry file and no dispatcher tables. Do not let
+anyone, human or AI, invent those for your mod alone; three mods would get three different inventions, which is the
+problem the standard is meant to end. The reference implementation is model27's (STANDARD.md §8, §9).
 
 - [0. What you need](#0-what-you-need)
 - [1. Describe the mod in five lines](#1-describe-the-mod-in-five-lines)
@@ -31,6 +31,8 @@ implementation comes from the standard's own repository first (STANDARD.md §9).
   (1.56, commit `95b63b7`, or earlier): its `tools/`, its `notes/` and `tweaks/model-cycles_OS1.13/REGISTRY.md`;
 - for a machine, [Cycles One-Shot](https://github.com/durchgemacht/cycles-one-shot)'s `TECHNICAL.md` §5 and §6, which
   describe the voice loop and the sound in the OS's terms;
+- for a machine, model27's two packages as worked examples, `tools/machines/sampler/` and
+  `tools/machines/refmachine/` (manifest, sources, committed object), and its notes 59 and 60;
 - [STANDARD.md](STANDARD.md), sections 2 to 6;
 - your own official `model-cycles_OS1.13.syx`, if a step needs a build or an emulation run. Nothing in this
   checklist asks you to share it.
@@ -85,7 +87,7 @@ name your mod: which sprite masks it writes, which cave bytes, and, if the tweak
 
 Search the sources for absolute addresses (`0x4…`, `0x8…`, `0xfc…`). Every one that is not in the mod's own payload
 and not in the shared list of STANDARD.md §2 is a claim: the OS's data it reads or writes, or free RAM it takes.
-One-Shot's sample pool, `0x42800000`–`0x46700000`, is the example of the second kind.
+One-Shot's sample pool, `0x43800000`–`0x46700000` since 0.7, is the example of the second kind.
 
 ### 2.5 Sound slots and record slots
 
@@ -194,34 +196,49 @@ Put the reference next to it: TONE is about 5 300 instructions per block per voi
 
 ## 7. Write the manifest
 
-Fill the skeleton below; STANDARD.md §4.2 explains each field, §7 has three complete examples. Fields marked
-*derived* are what tools will compute later; fill them by hand for now from sections 2 to 6, and mark them
-`"_derived_by_hand": true` so that nobody mistakes them for tool output.
+Fill the skeleton below; STANDARD.md §4.2 explains each field, §7.1 is a complete manifest as model27's composer
+reads it, §7.2 and §7.3 are two more in the older shape. Each hook goes into `uses`, with the original bytes it
+replaces. What tools will derive later (rewritten pointers, masks, payload sizes) goes into `_derived_by_hand`,
+filled by hand from sections 2 to 6, so that nobody mistakes it for tool output.
 
 ```json
 {
   "schema": "cycles-mod/0.1",
-  "id": "<tweak id>",
+  "id": "<tweak id, the package's folder name>",
   "version": "<release or git describe>",
   "name": "<as on the flasher card>",
   "description": "<the five lines of section 1, condensed>",
   "license": "<MIT | file name>",
   "credit": {"kind": "<own | based>", "who": "<name or handle>", "repo": "<owner/repo>"},
+  "source": "<URL of the sources at the commit you read>",
   "device": "Model:Cycles", "os": "1.13",
   "order": 0,
-  "build": {"objects": ["<file.o>"], "symbols": {}, "patch_points": []},
+  "build": {
+    "sources": ["<file.c>", "<file.S>"],
+    "include": [],
+    "cflags": ["<your build's flags; a package adds -fno-pic -fno-common -ffunction-sections -fdata-sections>"],
+    "defines": {},
+    "objects": ["<id>.o"],
+    "symbols": {"update": "<for a machine>", "render": "<for a machine>"},
+    "keep": ["<every other symbol a hook or vtable entry points at>"],
+    "patch_points": [{"symbol": "<undefined symbol>", "kind": "<machine_index | descriptor_base>"}]
+  },
   "uses": [
-    {"point": "<id from STANDARD.md §3.1>", "scope": "<all tracks | tracks of <machine>>", "...": "the point's own fields"}
+    {"point": "<id from STANDARD.md §3.1>", "scope": "<all tracks | tracks of <machine>>",
+     "hook": {"at": "0x........", "stock": "<old bytes>", "op": "<jsr | jmp>", "symbol": "<your function>"},
+     "why": "<one line>"},
+    {"point": "<id>", "vtable": {"at": "0x........", "stock_ptr": "0x........", "symbol": "<your method>"},
+     "why": "<one line>"}
   ],
   "claims": {
-    "_derived_by_hand": true,
-    "hooks": [{"at": "0x........", "stock": "<old bytes>", "point": "<point id or plain>", "why": "<one line>"}],
-    "pointers": [],
-    "masks": [],
-    "payload": {"code_and_tables": 0, "bss": 0, "image_bytes": 0, "window": "<alone | with-tg | none>"},
     "ram": [],
     "sound_slots": [], "record_slots": [], "descriptors": [], "formatters": [],
     "gestures": [], "views": [], "menus": [], "midi": {"cc": [], "nrpn": []}
+  },
+  "_derived_by_hand": {
+    "pointers": [],
+    "masks": [],
+    "payload": {"code_and_tables": 0, "bss": 0, "image_bytes": 0, "window": "<alone | with-tg | none>"}
   },
   "cost": {
     "emulation": {"tool": "mcengine.py", "pattern": "<named>", "mean": 0, "max": 0, "first_block": 0},
@@ -271,17 +288,19 @@ tweak <path to JSON> in a Modded-Cycles checkout at <path>, release 1.56.
 Produce, as files, nothing else:
 1. inventory.md following APPLYING.md sections 1, 2, 4, 5 and 6, every statement with a file and line reference
    or the words "not verified";
-2. manifest.json following APPLYING.md section 7, with "_derived_by_hand": true;
+2. manifest.json following APPLYING.md section 7, the derived parts under "_derived_by_hand";
 3. if the mod is a machine, deviations.md following section 3;
 4. questions.md with anything that fits no extension point, needs a registry number, or could not be measured.
 
-Do not change the mod's code. Do not invent a header, a registrar, a registry file or dispatcher tables. Do not
-assign a machine id or a sound slot. Where STANDARD.md and the code disagree, say so and quote both.
+Do not change the mod's code. Do not invent a header, a registrar, a registry file or dispatcher tables (the one
+registrar that exists is model27's composer). Do not assign a machine id or a sound slot. Where STANDARD.md and the
+code disagree, say so and quote both.
 ```
 
 ## 11. What not to do yet
 
-- do not rewrite the mod against a header or a registrar that does not exist;
+- do not rewrite the mod against a header, a registry or dispatcher tables that do not exist yet; packaging a
+  machine for model27's composer is a separate step, with its own proofs (STANDARD.md §8);
 - do not assign yourself a machine id, a k slot, a record slot or an order number;
 - do not drop declared conflicts because the rules would compute them;
 - do not report an emulator instruction count as a device percentage;

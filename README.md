@@ -1,13 +1,15 @@
 # Cycles Mod Standard
 
-**A draft, not published.** This page says what the idea is, first in plain words, then with a bit more technical
-detail. The full text with every address, rule and source is in [STANDARD.md](STANDARD.md).
+**Draft 0.2, public.** This page says what the idea is, first in plain words, then with a bit more technical
+detail. The full text with every address, rule and source is in [STANDARD.md](STANDARD.md). Part of it is built:
+[model27](https://github.com/durchgemacht/model27) composes added machines from manifests, tested on a Model:Cycles
+(see [Status and next steps](#status-and-next-steps)).
 
-**Authors:** durchgemacht and Claude.
+**Authors:** durchgemacht and Claude. **License:** MIT ([LICENSE](LICENSE)).
 
 Everything here was read in the code of [Modded-Cycles](https://github.com/18nelli18/Modded-Cycles) (release 1.56,
-the last one with a mod picker) and [Cycles One-Shot](https://github.com/durchgemacht/cycles-one-shot) 0.6, and in
-the notes both projects keep about the Model:Cycles OS 1.13.
+the last one with a mod picker), [Cycles One-Shot](https://github.com/durchgemacht/cycles-one-shot) 0.6 to 0.8 and
+model27, and in the notes the projects keep about the Model:Cycles OS 1.13.
 
 ## The problem, in one minute
 
@@ -150,33 +152,42 @@ third effect would need the second one read first.
 
 ## The manifest, trimmed
 
-One JSON file per mod. The core says who the mod is; `uses` lists the extension points; `claims` are mostly derived
-by tools from the compiled object; `cost`, `stock_behaviour` and `tests` are declared by the author.
+One JSON file per mod. The core says who the mod is; `build` says how its one compiled object is made and which of
+its symbols the builder needs; `uses` lists the extension points, each hook with the original bytes it replaces;
+`claims` lists the saved-data slots and the memory it takes; `cost`, `stock_behaviour` and `tests` are declared by
+the author. Trimmed from SAMPLE's manifest as model27 builds it:
 
 ```json
 {
   "schema": "cycles-mod/0.1",
-  "id": "sampler", "version": "0.6", "license": "MIT",
+  "id": "sampler", "version": "0.8", "license": "MIT", "order": 27,
+  "build": {
+    "objects": ["sampler.o"],
+    "symbols": {"update": "sampler_update", "render": "sampler_render"},
+    "keep": ["smp_hook_open", "smp_hook_save2", "smp_hook_save1", "smp_hook_load", "smp_hook_tick", "smp_main_draw", "smp_knob_draw"],
+    "patch_points": [{"symbol": "cm_machine_index", "kind": "machine_index"},
+                     {"symbol": "cm_descriptor_base", "kind": "descriptor_base"}]
+  },
   "uses": [
-    {"point": "machine", "image": 4, "decay_default": 127,
+    {"point": "machine", "name": "SAMPLE", "image": 4, "decay_default": 127,
      "knobs": [{"long": "Start", "short": "STRT", "default": 0, "min": 0, "max": 120},
                {"long": "Length", "short": "LEN", "default": 120, "min": 0, "max": 120},
-               {"long": "Cutoff", "short": "FREQ", "default": 64, "format": "own"},
+               {"long": "Cutoff", "short": "FREQ", "default": 64},
                {"long": "Reso", "short": "RESO", "default": 0}]},
-    {"point": "browser.open", "takes": "sample files on a SAMPLE track"},
-    {"point": "sound.record", "after_save": "smp_after_save", "after_load": "smp_after_load"},
-    {"point": "view.main", "scope": "SAMPLE tracks", "calls_next": true},
-    {"point": "memory.ram", "range": ["0x42800000", "0x46700000"], "why": "sample pool, 63 MB"}
+    {"point": "browser.open", "hook": {"at": "0x400a6602", "stock": "4eb9400a3052", "op": "jsr", "symbol": "smp_hook_open"}},
+    {"point": "view.main", "vtable": {"at": "0x400ffe30", "stock_ptr": "0x4001b22a", "symbol": "smp_main_draw"}},
+    {"point": "memory.ram", "range": ["0x43800000", "0x46700000"], "why": "the sample pool, 47 MB"}
   ],
   "claims": {"sound_slots": [25, 26, 27], "record_slots": [24, 25, 26, 27]},
-  "cost": {"device": {"status": "not measured"}},
-  "stock_behaviour": {"changes": ["the filter runs before Volume + Dist, the Model:Samples has it after"]},
-  "tests": {"hardware": {"date": "2026-10-20"}, "status": "experimental"}
+  "stock_behaviour": {"changes": ["the filter runs inside the machine, before Volume + Dist; the Model:Samples has it after"]},
+  "tests": {"hardware": {"date": "2026-10-22", "by": "maintainer"}, "status": "tested"}
 }
 ```
 
-From this the tools generate the tweak JSON, the flasher card, the registry entry and the computed compatibility.
-The full examples for SAMPLE, MACRO and the track filter are in STANDARD.md, section 7.
+From this model27's composer builds the tweak: it places the object, gives SAMPLE its machine number and parameter
+slots, registers it, writes its hooks and computes what it cannot be installed with. The flasher card and the
+registry entry still come from that tweak. The full manifest is in STANDARD.md, section 7.1; MACRO and the track
+filter follow there in the older shape.
 
 ## How "works with" gets computed
 
@@ -185,9 +196,11 @@ a different meaning (a gesture, a formatter); the same number in the registry; o
 the tables hold; the same order at the same chain point; or a declared conflict with a written reason, for the cases
 tools cannot see. Everything else is compatible until a test proves otherwise.
 
-Applied to today's mods: One-Shot's 77-entry conflict list shrinks to three registry clashes, one memory overlap
-and one declared reason, and ACID, which the list does not know, is covered. The track filter's hidden clash with One-Shot on record slot 27
-becomes visible.
+model27's composer already computes the byte rule, the memory rule and the declared reasons for machines: SAMPLE's
+conflicts come out of its bytes and claims, 267 against model27's tweaks, and putting a second machine next to it
+adds none. Applied to today's mods as a whole: One-Shot's former 77-entry list shrinks to three registry clashes and
+one declared reason (the memory overlap is gone since One-Shot 0.7 moved its pool), ACID is covered, and the track
+filter's hidden clash with One-Shot on record slot 27 becomes visible.
 
 ## The cost model
 
@@ -200,23 +213,39 @@ share of a block read on a real device (the number that counts, because the emul
 Syntakt engines counted like stock machines and cost almost twice as much on the box). The builder sums the worst
 case of what is chosen and warns above a threshold.
 
-## How a build would work
+## How a build works
 
-1. The builder reads the manifests of the chosen packages.
-2. It assigns machine numbers from the registry, lays out the payloads, links the compiled objects at their addresses.
-3. It fills the callback tables of the extension points. No code is generated per combination: tables are numbers.
-4. It applies the writes with Modded-Cycles' existing build code and re-signs the file.
-5. It writes the tweak JSON, the flasher card and a report: which machine got which number, where things sit, the
-   cost sum.
+As built in model27 for added machines:
+
+1. The composer reads the manifests of the chosen packages, in order.
+2. It places each package's compiled object at its address without a linker: the objects only carry absolute
+   addresses to fix up. Values that depend on the build (the machine number, the first parameter slot) are filled in
+   the same way.
+3. It registers all chosen machines at once through a runtime written once, by filling a small table. No code is
+   generated per combination.
+4. It writes each package's hooks, after checking the original bytes in your file, and computes what the result
+   cannot be installed with.
+5. Modded-Cycles' existing build code applies the result to your official file and re-signs it.
 6. The existing checks run unchanged: byte overlaps, every card alone and in pairs, the registry, each package's
    emulation proof.
 
-The web flasher cannot run a linker. Either a small relocator in JavaScript for absolute 32-bit references, or each
-machine shipped pre-linked once per possible slot (N machines × 8 slots instead of 2^N combinations). Open.
+All of this runs with Python alone. Still to come: machine numbers from a registry, the callback tables of the other
+extension points, cards generated from manifests. The web flasher will compose in the browser the same way: each
+object comes placed once with its list of fix-ups, the registrar's part as a table per number of machines (planned
+in model27, notes/61; no pre-linked variants per slot).
 
 ## Status and next steps
 
-Nothing of this is implemented. What has been checked:
+**Built** in [model27](https://github.com/durchgemacht/model27), 2026-10-21 and 22: the `machine` extension point
+and the manifest, for added machines. A composer places committed objects and registers them through a runtime,
+with Python alone; SAMPLE (Cycles One-Shot 0.8) and a small reference machine are the first two packages. Tested in
+the digiemu emulator and on a Model:Cycles, SAMPLE alone and with the second machine; SAMPLE is offered, tested, in
+model27's web flasher. The technical record is in model27's notes
+[59](https://github.com/durchgemacht/model27/blob/main/notes/59-level-b-builder.md),
+[60](https://github.com/durchgemacht/model27/blob/main/notes/60-level-b2-relocator-runtime.md) and
+[61](https://github.com/durchgemacht/model27/blob/main/notes/61-level-b3-web-flasher.md).
+
+**Checked for draft 0.1:**
 
 - One-Shot builds byte for byte the same against Modded-Cycles 1.56 as against the older commit it was written for.
 - Its tweak JSON, dropped into the tweaks folder as a plain file, builds the identical image with Modded-Cycles'
@@ -225,13 +254,14 @@ Nothing of this is implemented. What has been checked:
   arrived after One-Shot's reference commit, and nothing else.
 - All 71 addresses in the draft were checked against the source files they came from.
 
-The path, in order: write the contract and the shared header; port One-Shot onto Modded-Cycles' existing
-multi-machine registrar as the first proof; generate manifests for the existing mods from their generators; let the
-registry tool read manifests; compute conflicts and compare with the hand lists; add the callback tables one point at
-a time, each proven in emulation like a mod; last, the flasher.
+The path, in order: write the contract and the shared header; port One-Shot onto a shared multi-machine registrar
+as the first proof (done in model27); generate manifests for the existing mods from their generators (two written by
+hand so far); let the registry tool read manifests; compute conflicts and compare with the hand lists (done for
+machines in model27); add the callback tables one point at a time, each proven in emulation like a mod; last, the
+flasher (planned in model27).
 
 Open decisions: how machine numbers become permanent; the cost threshold; the two unread places in the OS; the stock
-MIDI map; relocator or pre-linked slots; who assigns registry numbers.
+MIDI map; who assigns registry numbers. Decided in 0.2: the web flasher uses a relocator.
 
 ## Read more
 
@@ -239,3 +269,4 @@ MIDI map; relocator or pre-linked slots; who assigns registry numbers.
 - Modded-Cycles' notes 18 (adding a machine), 43 (MACRO), 47 (track filter), 49 and 52 (checking mods against each
   other, the register of free space), 23 and 25 (load measurements and the governor).
 - Cycles One-Shot's TECHNICAL.md, sections 3 to 6 (the machine mechanics, the audio side, sounds and records).
+- model27's notes 59 to 61: the builder as built, its proofs, and the web flasher's plan.

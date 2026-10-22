@@ -701,8 +701,9 @@ and B2, tested on a Model:Cycles on 2026-10-22):
   template whose three immediates and segment table the composer fills. Until then these detours were generated and
   assembled per build.
 - **Proofs:** the relocator against `ld`, byte for byte; the runtime against the per-build detours (the same writes
-  except the jump sites); the digiemu emulator; a Model:Cycles, SAMPLE alone and SAMPLE with a second machine. A
-  Unicorn proof on the OS's own code is still to come.
+  except the jump sites); the OS's own code in Unicorn (model27's `tools/emu/test_compose.py`: the registrar's
+  mechanics, the runtime against the per-build detours input for input, the voice loop); the digiemu emulator; a
+  Model:Cycles, SAMPLE alone and SAMPLE with a second machine.
 - **The generators** need the toolchain: they compile and commit the objects, the runtime and the stub template, and
   check them with `--check`.
 

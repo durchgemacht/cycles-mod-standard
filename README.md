@@ -238,9 +238,9 @@ in model27, notes/61; no pre-linked variants per slot).
 
 **Built** in [model27](https://github.com/durchgemacht/model27), 2026-10-21 and 22: the `machine` extension point
 and the manifest, for added machines. A composer places committed objects and registers them through a runtime,
-with Python alone; SAMPLE (Cycles One-Shot 0.8) and a small reference machine are the first two packages. Tested in
-the digiemu emulator and on a Model:Cycles, SAMPLE alone and with the second machine; SAMPLE is offered, tested, in
-model27's web flasher. The technical record is in model27's notes
+with Python alone; SAMPLE (Cycles One-Shot 0.8) and a small reference machine are the first two packages. Proven on
+the OS's own code in an emulator, tested in the digiemu emulator and on a Model:Cycles, SAMPLE alone and with the
+second machine; SAMPLE is offered, tested, in model27's web flasher. The technical record is in model27's notes
 [59](https://github.com/durchgemacht/model27/blob/main/notes/59-level-b-builder.md),
 [60](https://github.com/durchgemacht/model27/blob/main/notes/60-level-b2-relocator-runtime.md) and
 [61](https://github.com/durchgemacht/model27/blob/main/notes/61-level-b3-web-flasher.md).

@@ -571,8 +571,9 @@ other packages. model27 checks MIDI claims that way (§4.4).
 
 ### 5.6 Tweak order numbers
 
-`order` sorts the tweaks and the chains. Today: 25 MACRO, 26 ACID, **26 One-Shot** in its own repository (a clash the
-checker reports as "two payloads at the same order"; model27 builds it at 27), 48 track-filter, 60 lfo-plus.
+`order` sorts the tweaks and the chains. Today: 25 MACRO, 26 ACID, 27 One-Shot (in its own repository since 0.7 and
+in model27; up to 0.6 it was 26, a clash the checker reported as "two payloads at the same order"), 48 track-filter,
+60 lfo-plus.
 Proposal: machines 20–39, track-chain stages 40–59, UI and sequencer 60–79, MIDI 80–89, cosmetic 90–99, assigned
 with the id.
 

@@ -545,9 +545,8 @@ The sound holds k 0–32; the stock OS uses 0–22 (notes/47 §4.3). Assigned to
 | 25–27 | One-Shot | sample key: inode, id high, id low | in use; clashes with Model-TG (declared) |
 | 28–31 | track-filter | Cutoff, Reso, Env, Decay, through descriptors 1–4 | in use |
 | 28–32 | lfo-plus | LFO 2 | in use; clashes with track-filter (declared) |
-| 28 (two bits) | One-Shot loop/reverse | proposed, not built | would clash with track-filter and lfo-plus |
 | 28–31 | model27's shortcut layer | the four shortcuts of the track's machine, machine-scoped (REF2: k 28, Octave); they stay when a track changes machine, and a new sound starts at 0 | in use in model27; the clashes with the track filter and with lfo-plus are computed from the claims (lfo-plus packs k 28–32 into the same record slots from inside the stock save and load, at other bytes, which no byte check sees) |
-| 32 | model27's shortcut layer (0.2) | the two switches of the track's machine: bit 8 RETRIG + PUNCH, bit 9 RETRIG + GATE, the other bits 0; machine-scoped (REF2: Square, Tone open); they stay when a track changes machine | in use in model27; lfo-plus holds k 32 too and already clashes with the layer |
+| 32 | model27's shortcut layer (0.2) | the two switches of the track's machine: bit 8 RETRIG + PUNCH, bit 9 RETRIG + GATE, the other bits 0; machine-scoped (REF2: Square, Tone open; One-Shot's SAMPLE since 0.11: Loop, Reverse); they stay when a track changes machine | in use in model27; lfo-plus holds k 32 too and already clashes with the layer |
 
 **No k is free.** New persistent parameters need either an agreement between packages (lfo-plus could keep LFO 2 in
 memory when the filter is chosen, notes/56 §3.6) or another home in the sound; the 14 bytes after k 32 (`+86`–`+99`)

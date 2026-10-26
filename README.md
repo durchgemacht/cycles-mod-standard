@@ -1,9 +1,10 @@
 # Cycles Mod Standard
 
-**Draft 0.4, public.** This page says what the idea is, first in plain words, then with a bit more technical
+**Draft 0.5, public.** This page says what the idea is, first in plain words, then with a bit more technical
 detail. The full text with every address, rule and source is in [STANDARD.md](STANDARD.md). Much of it is built:
 [model27](https://github.com/durchgemacht/model27) composes added machines from manifests, tested on a Model:Cycles,
-and lets them share the screen, the browser and saved sounds and use a fixed list of shortcuts, proven in an emulator.
+and lets them share the screen, the browser and saved sounds and use a fixed list of shortcuts and switches, proven
+in an emulator.
 Its tools also compute which mods clash over a saved slot, a key combination or a display, from what each mod
 declares (see [Status and next steps](#status-and-next-steps)). To port a machine, follow [APPLYING.md](APPLYING.md)
 §12.
@@ -146,7 +147,7 @@ detours such a place itself; it registers a callback in its manifest and the bui
 | `browser.open` | the PRESET browser opens a file | **by machine**: the machine of the track it loads into | One-Shot (sample files on a SAMPLE track), REF2 |
 | `screen.tick` | the screen's redraw, about 30 times a second | **append**: every machine | One-Shot (loads samples in the background), REF2 |
 | `view.main`, `view.knob` | the main screen and the knob value screen | **by machine**: the selected track's machine draws, or the stock screen | One-Shot, REF2 |
-| `shortcut` | RETRIG held + COLOR, SHAPE, SWEEP or CONTOUR on a machine's tracks | **by machine**, from a fixed list: up to four extra values per machine, saved with the sound | REF2 (Octave) |
+| `shortcut` | RETRIG held + COLOR, SHAPE, SWEEP or CONTOUR on a machine's tracks, and RETRIG held + a press on PUNCH or GATE (since 0.5) | **by machine**, from a fixed list: up to four extra values and two on/off switches per machine, saved with the sound; while RETRIG is held, PUNCH's and GATE's LEDs show the switches | REF2 (Octave; Square, Tone open) |
 | `menu.track_setup` | the FUNC + TRACK menu | **append** | nobody yet (read for One-Shot's loop/reverse study) |
 | `gesture` | a key combination and its meaning | **exclusive** per combination, situation and scope; computed in model27 | track filter, Model-TG, MACRO, Control All Config, arp, and more (STANDARD.md §5.4); stock |
 | `param.sound`, record slots | the spare slots of a sound | **registry**; computed from the claims in model27 | Model-TG, track filter, LFO-Plus, One-Shot, model27's shortcuts |
@@ -249,7 +250,7 @@ claims. Still to come: cards generated from manifests.
 
 ## Status and next steps
 
-**Built** in [model27](https://github.com/durchgemacht/model27), 2026-10-21 to 23:
+**Built** in [model27](https://github.com/durchgemacht/model27), 2026-10-21 to 26:
 - **the `machine` extension point and the manifest**, for added machines. A composer places committed objects and
   registers them through a runtime, with Python alone, and the web flasher does the same in the browser. SAMPLE
   (Cycles One-Shot 0.8) and a small reference machine were the first two packages. This is proven on the OS's own
@@ -259,7 +260,10 @@ claims. Still to come: cards generated from manifests.
   for porting a machine. This is proven in the emulator, not on the device yet;
 - **the claims:** what each mod takes beyond its bytes (saved slots, key combinations, descriptors, formatters, MIDI
   numbers, memory, displays), declared in one shape and checked. The tools compute the clashes from them, the
-  registry lists them, and the web flasher explains a computed clash in English and French.
+  registry lists them, and the web flasher explains a computed clash in English and French;
+- **two switches** (2026-10-26): RETRIG + PUNCH and RETRIG + GATE, each on or off and saved with the sound, on the
+  tracks of a machine that wants them; REF2 uses them for Square and Tone open. This is proven in the emulator, not
+  on the device yet.
 
 The technical record is in model27's notes
 [59](https://github.com/durchgemacht/model27/blob/main/notes/59-level-b-builder.md),
@@ -289,7 +293,8 @@ numbers. Decided in 0.2: the web flasher uses a relocator. Decided in 0.3: machi
 ("projects belong to a build"); shortcuts are a fixed list; the shared points go by machine. Decided in 0.4: the
 tweaks' claims live in one declared file; key combinations are written on a fixed vocabulary and compared in
 situations and scopes; taking a stock combination must say what it replaces; two displays on one screen are a
-warning; the web flasher explains a computed clash.
+warning; the web flasher explains a computed clash. Decided in 0.5: two switches join the shortcuts, RETRIG + PUNCH
+and RETRIG + GATE; their LEDs show them while RETRIG is held, and the rest of how a switch shows is the machine's.
 
 ## Read more
 

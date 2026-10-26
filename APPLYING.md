@@ -1,6 +1,6 @@
 # Applying the standard to your mod — a checklist
 
-**Status:** draft 0.4, 2026-10-23, companion to [STANDARD.md](STANDARD.md). Written for the author of an existing
+**Status:** draft 0.5, 2026-10-26, companion to [STANDARD.md](STANDARD.md). Written for the author of an existing
 Model:Cycles mod and the AI assistant they work with. Sections 1 to 11 inventory a mod; section 12 ports a machine to
 model27's builder, step by step, with REF2 as the template.
 **Authors:** durchgemacht and Claude. **License:** MIT ([LICENSE](LICENSE)).
@@ -165,6 +165,7 @@ Take the inventory of section 2 and, for each item, find the row of STANDARD.md 
 | a hook on the redraw `0x400075f0` | `screen.tick` | append (every machine) |
 | a rewritten draw entry `0x400ffe30` or `0x4010053c` | `view.main`, `view.knob` | by machine (the selected track) |
 | RETRIG held + COLOR, SHAPE, SWEEP or CONTOUR on your machine's tracks | `shortcut` | by machine, from the builder's list |
+| RETRIG held + a press on PUNCH or GATE on your machine's tracks (a switch) | `shortcut` | by machine, from the builder's list |
 | an entry appended to Track Setup | `menu.track_setup` | append |
 | a key combination | `gesture` | exclusive |
 | sound slots, record slots | `param.sound` | registry |
@@ -376,7 +377,8 @@ Start from REF2's (STANDARD.md §7.4). Then:
 - `order` comes from the maintainer;
 - `claims` say what the machine keeps and answers beyond its writes, in the shapes of STANDARD.md §4.5, on its own
   machine's tracks by default: a shortcut's k and record slot and its RETRIG combination in `params` (as REF2's),
-  the views it draws on, and its RAM, the same ranges as its `memory.ram` entries;
+  a switch's k 32, record slot 18 and its RETRIG combination in any situation (as REF2's), the views it draws on,
+  and its RAM, the same ranges as its `memory.ram` entries;
 - `build` names your sources, your object, your patch points, `update`/`render`, and in `keep` every function a hook
   or vtable entry points at;
 - the `machine` entry gives four knobs (long name, short name of 4 characters at most, default, and `min`/`max` if not
@@ -386,10 +388,11 @@ Start from REF2's (STANDARD.md §7.4). Then:
 `python3 tools/compose.py --cycles <official file> --machines <id> --compare-ld` composes your machine alone,
 identical to `ld`. Then compose it with `sampler` before and after it.
 
-### 12.4 A shortcut (optional)
+### 12.4 A shortcut or a switch (optional)
 
 Your machine may give its tracks up to four extra values, one per knob, on **RETRIG held + COLOR, SHAPE, SWEEP or
-CONTOUR**. No other combination is accepted.
+CONTOUR**, and up to two switches, on **RETRIG held + a press on PUNCH or GATE** (below). No other combination is
+accepted.
 
 ```json
 {"point": "shortcut", "key": "RETRIG", "knob": "COLOR",
@@ -407,6 +410,32 @@ CONTOUR**. No other combination is accepted.
 - **It stays when a track changes machine**, and the next machine reads it its own way.
 - **Optional `format`:** a kept function `int32_t f(void *object, int32_t value, char *buffer)` that writes at most
   three characters. Without it the value shows as an integer.
+
+**A switch** (since draft 0.5) is on or off, saved with the sound:
+
+```json
+{"point": "shortcut", "key": "RETRIG", "press": "PUNCH"}
+```
+
+- **Off is 0**, the setting of a new sound, of a sound saved before, and of a sound from the official OS.
+- **On your machine's tracks** a press on PUNCH (or GATE) with RETRIG held flips your switch, and PUNCH (or GATE)
+  stays as it was. While RETRIG is held, PUNCH's and GATE's LEDs show your switches. Everywhere else, and with TRACK
+  held (Control All), the press does what it does in the stock OS. A held trig changes nothing.
+- **Where to read it:** bit 8 (PUNCH) or bit 9 (GATE) of k 32 in the sound the note plays, not in `params`, which the
+  OS smooths (STANDARD.md §2.3). As REF2's `refmachine2.c` reads it:
+
+  ```c
+  #define CUR_SND(t)  (((const char *volatile *)0x800017ec)[t])
+  #define TARGETS(t)  ((const char *)0x800015ae + 66 * (t))
+  const char *snd = CUR_SND(t);
+  uint16_t sw = snd ? *(const volatile int16_t *)(snd + 84) : *(const int16_t *)(TARGETS(t) + 64);
+  ```
+
+  Read in `update`, every block, it acts at once; read only in the block a note starts (`v + 0x38` set), it acts
+  from the next note.
+- **What you do not write:** the shortcut layer flips the switch, lights the LEDs and saves it. Showing it on the
+  screen, if you want to, is yours: REF2 draws `S` and `O` left of its label.
+- **It stays when a track changes machine**, like a value.
 
 ### 12.5 The points SAMPLE uses
 
@@ -430,7 +459,7 @@ the same: the dispatchers find the machine the same way.
 
 Copy the tests and point them at your machine:
 - `tools/emu/test_compose.py`, the registration and the voice loop;
-- `tools/emu/test_shortcuts.py`, if you declared a shortcut;
+- `tools/emu/test_shortcuts.py`, if you declared a shortcut or a switch;
 - `tools/emu/test_views.py`, if you take a view, the tick or the browser.
 
 They run the OS's own code in Unicorn. Then:
@@ -441,9 +470,10 @@ They run the OS's own code in Unicorn. Then:
 ### 12.7 Not allowed
 
 - a shortcut outside the list, two shortcuts on one knob, or a default other than 0;
+- a switch outside the list, the same press twice, or a switch read at `params + 0x40` (it glides there);
 - a sound slot or record slot of your own (k 23–32 and the record slots are taken: STANDARD.md §5.2, §5.3);
-- a hook on the knob lookup `0x401005a8` (the shortcut layer's), or on the record functions next to another
-  machine's wrapper;
+- a hook on the knob lookup `0x401005a8`, on `0x4001ac4a` or `0x4001cc86` (the shortcut layer's), or on the record
+  functions next to another machine's wrapper;
 - a method that draws, ticks or opens without checking the track: next to another machine it would run for that
   machine's tracks too;
 - RAM outside your BSS other than a `memory.ram` claim that stays clear of the payload window.
@@ -455,8 +485,9 @@ Read STANDARD.md (sections 2, 3, 4 and 7.4) and APPLYING.md section 12 from <pat
 tools/machines/refmachine2/ (manifest.json, refmachine2.c, ref2_view.c, ref2_open.S) in <path to model27>.
 
 Port the machine in <path to its sources> to a package in model27's tools/machines/<id>/, following APPLYING.md
-section 12 step by step: the object (12.1), the voice (12.2), the manifest (12.3), a shortcut only if the machine
-needs an extra value (12.4), and only the points of 12.5 the machine already uses, each method checking its own
+section 12 step by step: the object (12.1), the voice (12.2), the manifest (12.3), a shortcut or a switch only if the
+machine needs an extra value or an on/off setting (12.4), and only the points of 12.5 the machine already uses, each
+method checking its own
 track; declare its claims as STANDARD.md §4.5 shapes them. Write the generator and the proofs by copying model27's
 for REF2. Run every check named in section 12 and
 report each result; where one fails, stop and say why.

@@ -859,7 +859,8 @@ Computed conflicts, from model27's claims (2026-10-23):
 - lfo-plus: sound slots 28–31 against 28–32, record slots 30–31 against 30–31, and both re-number the p-lock
   rows.
 - One-Shot: record slot 27. The `sound.record` chain replaces today's hook conflict.
-- One-Shot's loop/reverse study: the bits of k 28.
+- One-Shot's SAMPLE since 0.11 (Loop and Reverse on model27's switches, 2026-10-26): record slot 18 as well, and,
+  through the shortcut layer every SAMPLE build now carries, k 28–31, record slots 30–31 and descriptors 1–4.
 
 ### 7.4 REF2 (model27's second reference machine)
 

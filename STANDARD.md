@@ -21,8 +21,8 @@ And then two more machine shortcuts (2026-10-26):
 - a machine reads them in the sound its note plays, because the parameters it gets are smoothed (§2.3).
 
 The machine parts are proven in emulation with a second, internal reference machine, REF2, whose manifest is the
-template for porting a machine (§7.4); REF2 is not tried on the device yet. The claims are proven by the tools' own
-checks. The shared header is still a proposal.
+template for porting a machine (§7.4); REF2 was played on a Model:Cycles next to SAMPLE on 2026-10-26, switches
+included. The claims are proven by the tools' own checks. The shared header is still a proposal.
 **Authors:** durchgemacht and Claude.
 **License:** MIT ([LICENSE](LICENSE)).
 **Scope:** mods for the Elektron Model:Cycles OS 1.13 that are built from the user's own official file with
@@ -929,7 +929,7 @@ after the switches (model27 notes/63 §18):
  "cost": {"emulation": {"status": "not measured"}, "device": {"status": "not measured"}},
  "stock_behaviour": {"changes": ["on its tracks, RETRIG held + PUNCH or GATE flips its switch instead of PUNCH or GATE, and their LEDs show its switches while RETRIG is held"], "fixes": [], "unchanged": ["other tracks and machines", "TRACK + PUNCH or GATE (Control All), with or without RETRIG"]},
  "compat": {"built_against": ["model27"], "requires": [], "conflicts_declared": []},
- "tests": {"emulation": {"tool": "tools/emu/test_compose.py, tools/emu/test_shortcuts.py and tools/emu/test_views.py (Unicorn, the OS's own code, notes/63 §10, §11.4, §12.4, §13.4, and the switches §18.4)", "date": "2026-10-26", "build": "alone, as machine 6 or 7 next to sampler, and as machine 8 of sampler, refmachine, refmachine2"}, "hardware": {"status": "not yet run"}, "status": "experimental"}
+ "tests": {"emulation": {"tool": "tools/emu/test_compose.py, tools/emu/test_shortcuts.py and tools/emu/test_views.py (Unicorn, the OS's own code, notes/63 §10, §11.4, §12.4, §13.4, and the switches §18.4)", "date": "2026-10-26", "build": "alone, as machine 6 or 7 next to sampler, and as machine 8 of sampler, refmachine, refmachine2"}, "hardware": {"date": "2026-10-26", "by": "maintainer", "build": "sampler + refmachine2 from tools/compose.py (notes/63 §20.1, .syx 8d75e346, MAIN OS 6ee148f3): \"alles wie erwartet\", the list of notes/63 §20.2 (§20.4); REF2 alone and its browser hook not run"}, "status": "experimental"}
 }
 ```
 
@@ -956,7 +956,10 @@ after the switches (model27 notes/63 §18):
 - **Proven in emulation** on the OS's own code: the knob in 1 792 to 2 240 cases per build, the value's range, clamp,
   display, save and load, a machine change, the octave, the views, the tick and the browser. The switches (model27
   notes/63 §18): the press against the stock OS in up to 2 400 cases, the LEDs in up to 640, slot 18 and k 32 in the
-  record, the four sounds and a switch acting from the block it flips at. Not yet on the device.
+  record, the four sounds and a switch acting from the block it flips at.
+- **On a Model:Cycles** (2026-10-26, model27 notes/63 §20.4): the build SAMPLE + REF2, as expected: the Octave and
+  its views, the switches and their LEDs, a switch alone kept by the project, sounds copied, saved and loaded with
+  them. Not yet: REF2 alone, and its browser hook.
 - **The claims** (2026-10-23, the switches 2026-10-26): through the shortcut layer, k 28–32 and record slots 18 and
   28–31 of every sound. lfo-plus's clash is computed from them, and so are the track filter's and Model-TG's.
 
@@ -1038,8 +1041,8 @@ Pre-linked variants per slot are not needed.
    (the shortcut layer's lfo-plus) is gone, computed now.
 6. **Dispatcher tables** for `sound.record`, `screen.tick`, `view.*` and `menu.track_setup`, one at a time, each
    proven in emulation like a mod. *Done in model27* for `sound.record`, `view.main`, `view.knob`, `screen.tick` and
-   `browser.open` (§3.3), proven in emulation with SAMPLE and REF2, not yet on the device; `menu.track_setup` not
-   started.
+   `browser.open` (§3.3), proven in emulation with SAMPLE and REF2, and played on a Model:Cycles with both on
+   2026-10-26, REF2's browser hook aside; `menu.track_setup` not started.
 7. **The flasher** builds cards from manifests and fills tables, with the relocator of §8. *Done in model27* for the
    tables (`composer.js`); the cards still come from the tweaks (`gen_flasher_tweaks.py`).
 

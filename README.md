@@ -257,13 +257,14 @@ claims. Still to come: cards generated from manifests.
   code in an emulator and tested on a Model:Cycles; SAMPLE is offered, tested, in model27's web flasher;
 - **the machine shortcuts, and the dispatchers** for saving sounds, the main and knob screens, the screen's tick and
   the browser. A second reference machine, REF2, uses all of them next to SAMPLE, and its manifest is the template
-  for porting a machine. This is proven in the emulator, not on the device yet;
+  for porting a machine. This is proven in the emulator and, since 2026-10-26, played on a Model:Cycles next to
+  SAMPLE;
 - **the claims:** what each mod takes beyond its bytes (saved slots, key combinations, descriptors, formatters, MIDI
   numbers, memory, displays), declared in one shape and checked. The tools compute the clashes from them, the
   registry lists them, and the web flasher explains a computed clash in English and French;
 - **two switches** (2026-10-26): RETRIG + PUNCH and RETRIG + GATE, each on or off and saved with the sound, on the
-  tracks of a machine that wants them; REF2 uses them for Square and Tone open. This is proven in the emulator, not
-  on the device yet.
+  tracks of a machine that wants them; REF2 uses them for Square and Tone open. This is proven in the emulator and
+  played on a Model:Cycles (2026-10-26).
 
 The technical record is in model27's notes
 [59](https://github.com/durchgemacht/model27/blob/main/notes/59-level-b-builder.md),

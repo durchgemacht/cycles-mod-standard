@@ -1,6 +1,6 @@
-# Cycles Mod Standard — draft 0.5
+# Cycles Mod Standard — draft 0.6
 
-**Status:** draft 0.5, 2026-10-26, public. Draft 0.1 (2026-10-21) described a target only. Draft 0.2 described the
+**Status:** draft 0.6, 2026-10-27. Draft 0.1 (2026-10-21) described a target only. Draft 0.2 described the
 `machine` point of Level B and the manifest of Level C as [model27](https://github.com/durchgemacht/model27) built
 them: a composer that places committed objects and registers them through a runtime, with no toolchain at build
 time, tested on a Model:Cycles on 2026-10-22 (§8). Draft 0.3 added what model27 built next:
@@ -23,6 +23,16 @@ And then two more machine shortcuts (2026-10-26):
 The machine parts are proven in emulation with a second, internal reference machine, REF2, whose manifest is the
 template for porting a machine (§7.4); REF2 was played on a Model:Cycles next to SAMPLE on 2026-10-26, switches
 included. The claims are proven by the tools' own checks. The shared header is still a proposal.
+
+And then the effects (2026-10-27):
+- the mixer's delay and reverb as two extension points, `fx.delay` and `fx.reverb`: an effect is a package that plays
+  in one of them instead of the stock effect, and the pattern chooses which (§3.1, §3.5);
+- each slot's line, RAM the builder gives the effects of the slot to share (§3.5);
+- an effect's cost, counted and declared, and the builder's rule per slot (§6);
+- fixed effect ids, and the pattern header's bytes in the registry (§5.8, §5.9).
+
+The first effect is Digital Delay, PPPCCC's digital delay ported to a package, its sound theirs bit for bit; it was
+played on a Model:Cycles from the web flasher on 2026-10-27, alone and next to SAMPLE (§7.5).
 **Authors:** durchgemacht and Claude.
 **License:** MIT ([LICENSE](LICENSE)).
 **Scope:** mods for the Elektron Model:Cycles OS 1.13 that are built from the user's own official file with
@@ -33,6 +43,17 @@ but not followed through in the OS, it says so. Addresses are virtual addresses 
 
 **Applying it to an existing mod:** [APPLYING.md](APPLYING.md) is the checklist for authors and their AI
 assistants. It produces an inventory, a manifest, the collisions and the deviations of a mod, not a rewrite.
+
+**Changes from 0.5:**
+- §1: the terms *effect* and *slot*;
+- §3.1: `fx.bus`, unmapped until now, becomes `fx.delay` and `fx.reverb`; the gesture TRACK + Delay Time / Reverb
+  Size; new §3.5, the effect slots: the call, the line, the choice, what is reserved;
+- §3.2 to §3.4: the effects' table, the third part of the builder, the limits;
+- §4.2: an effect's `build.roots`, its patch point `fx_line` and its entry in `uses`;
+- §5.8 and §5.9: the effect ids and the pattern header;
+- §6: the effects' cost and the builder's rule;
+- §7.5: Digital Delay's manifest;
+- §8 to §11: brought up to date.
 
 **Changes from 0.4:**
 - §2.3: the parameters a machine gets are smoothed; a value it must read exactly is read in the note's sound;
@@ -77,7 +98,7 @@ since 0.7 (§2.7, §3.1). The rest is as in 0.1.
 - [4. Level C: the manifest](#4-level-c-the-manifest)
 - [5. The number registry](#5-the-number-registry)
 - [6. The cost model](#6-the-cost-model)
-- [7. Examples: SAMPLE, MACRO, track-filter, REF2](#7-examples-sample-macro-track-filter-ref2)
+- [7. Examples: SAMPLE, MACRO, track-filter, REF2, Digital Delay](#7-examples-sample-macro-track-filter-ref2-digital-delay)
 - [8. Builder and web flasher](#8-builder-and-web-flasher)
 - [9. Migration path](#9-migration-path)
 - [10. Open decisions](#10-open-decisions)
@@ -114,6 +135,8 @@ mechanics (`gen_macro.added_machine`). It adds three things:
 |---|---|
 | **machine** | a sound engine the OS selects on the MACHINES page: two functions in the voice loop plus five parameter descriptors |
 | **package** | a mod as shipped: one or more relocatable objects (m68k ELF `.o`) and a manifest |
+| **effect** | a package that processes the mixer's delay or reverb send in place of the stock effect: one function per audio block, two parameters, an id of its own |
+| **slot** | the place of the delay or the reverb in the mixer: the stock effect and the build's effects, of which the playing pattern chooses one |
 | **extension point** | a named place in the OS a package may use: the machine table, a stage of the track chain, a menu, a gesture, a vtable entry, a range of sound slots |
 | **composition rule** | how several packages share one extension point: table, chain, append, exclusive, allocation, registry |
 | **claim** | a resource a package needs: an extension point, a hook address, a sound slot, a gesture, a memory range |
@@ -274,7 +297,8 @@ and checked byte for byte by `check_overlaps.py`, as today.
 | `machine` | the `update`/`render` tables, the names, the record map, the descriptors and knob rows, moved into the payload (notes/18) | **table**: the builder assigns the index and the descriptors | 6 added machines in the current layout (109 descriptors fit between `DESCN` and `ROWSN`); 14 marks on the MACHINES page (2 rows of 7); 8 added records | MACRO, ACID, Syntakt engines, Model-TG's Sampler, SAMPLE, sdvintage-7th |
 | `track.post_voldist` | the call of Volume + Dist in the audio block function: `0x40059852` → `0x40056f58(0x80001858, a2)` ("H3", notes/47 §2) | **chain**, ordered by the packages' declared `order`; each stage sees the six track buffers `0x80001858 + 128 · t` after Volume + Dist and before level, pan and sends | register contract: keep d2–d7/a2–a6, restore MACSR (`0x20` there), leave acc0–acc3 at zero | track-filter |
 | `track.post_voice` | after the voice loop (`0x4005981e`), before the velocity gain (`0x4005982a`) | **chain** | candidate: no mod uses it; contract to be read | — |
-| `fx.bus` | the delay and reverb | **chain** | **not mapped**: the mixer `0x400567ba` does level, pan and sends; where the effects run has not been read | — |
+| `fx.delay` | the mixer's call of the delay: `0x4005699c` (`jsr 0x40057488(out 0x8000ba90, in 0x8000b990, P + 428)`, after the delay line's read DMA has finished); the stock delay's line and DMA (`0x42400000`–`0x42800000`, `0x400573fa`, `0x4005802e`) stay the stock delay's | **table by id**: entry 0 the stock delay, then the build's effects by id; the playing pattern chooses one, which runs every block in place of the stock call (§3.5) | 7 effects per slot; one plays at a time; a line of at most 4 MiB for the slot's effects to share | Digital Delay (id 1), REFD (254) |
+| `fx.reverb` | the mixer's call of the reverb: `0x40056a2c` (`jsr 0x400579c4(out 0x8000bb90, in 0x8000b990, P + 432)`); the reverb's lines and DMA (`0x42340000`–`0x423d8000`, `0x40057942`) stay the stock reverb's | **table by id**, as `fx.delay` | as `fx.delay` | REFR (255) |
 | `sound.record` | the three sound record functions: save v2 `0x4005afa0`, save v1 `0x4005b054`, load `0x4005aecc` | **chain**, as built in model27: the builder's shortcut layer takes the functions' first 8 bytes (`lea -12(sp),sp ; movem.l a2-a4,(sp)`) and runs one package's wrapper as the next of its chain (One-Shot's "around" form: a copy of the arguments, the 8 bytes replayed, the stock body, then the package's `after` function, `d0` kept), then copies k 28–31 into record slots 28–31 or back; without a shortcut in the build, the package writes its own wrapper | one wrapper per function behind the layer; the functions return 0 when they did nothing (a null pointer; for the load also a record of another version than 2, left untouched), and a wrapper copies its slots only when the function returned 1 | Model-TG, track-filter, One-Shot, model27's shortcut layer |
 | `param.tables` | at boot the OS builds its parameter tables (k → descriptor per machine, CC, LFO) from the descriptors: `0x4005a274`, called once from `0x4004486c`; the track-filter's `tf_boot` hooks that call and copies its four descriptors into the active table (notes/47 §4, `tf_ui.S`) | **append** at boot | the active table is the one the build moved (the Syntakt engines move it into their payload); a package finds it where the build says | track-filter |
 | `sound.copy` | the sound's copy of its parameters by record slot (`0x4001461c`, slot 17 of `Sound`'s vtable), whose bound k ≤ 22 at `0x4005aa34`/`0x4005aa54` drops everything above (notes/47 §4.3) | **chain** | contract to be read from notes/47 §4 | track-filter |
@@ -283,19 +307,19 @@ and checked byte for byte by `check_overlaps.py`, as today.
 | `view.main`, `view.knob` | entry `+16` of MainScreenView's vtable (`0x400ffe30`, stock `0x4001b22a`) and of the knob view's (`0x4010053c`, stock `0x4001e40a`): the draw method | **by machine**, as built in model27: the draw of the selected track's machine, otherwise the stock draw; each draw still checks the track itself and calls the stock draw in every case it does not take, so that it works as the point's only taker too | one draw per machine and view; level-pan-values draws on the main screen through other hooks (`0x400081f2`, `0x4001aa4e`) and is not a byte conflict, but a functional one this point would make visible | One-Shot, REF2 |
 | `menu.track_setup` | FUNC + TRACK; TrackMenuView is rebuilt at every opening by its one caller `0x4001c510` (`jsr 0x4003e020`); entries are 84-byte MenuItems (`0x400734b0`, vtable `0x40103470`) with four `std::function` callbacks, appended with `0x400732d6(menu, item, 12)`; strings via `0x400f980c` | **append**, in `order`; a package gives label, value text, change callback and a scope (all tracks, or tracks of its machine) | the MenuItem ABI is the risk; the shared header wraps it once | — (read for One-Shot's loop/reverse, not built) |
 | `shortcut` | on a track of the machine that declares it, RETRIG held + COLOR, SHAPE, SWEEP or CONTOUR (a value): the knob lookup's vtable entry `0x401005a8` (stock `0x4001e814`); RETRIG held + a press on PUNCH or GATE (a switch): the function both presses call, `0x4001ac4a` (its first 6 bytes; its only callers are PUNCH's and GATE's cases of MainScreenView's key handler, `0x4001c2d2` and `0x4001caa2`), and MainScreenView's LED method at `0x4001cc86` (6 bytes, LED 19 PUNCH, LED 20 GATE) | **by machine**: one shortcut per knob or key and machine, from the builder's fixed list (model27: the four knobs, and PUNCH and GATE since 0.5). The builder's shortcut layer shows a value through the OS's unused descriptors 1–4 and saves it in k 28–31 and record slots 28–31; it flips a switch in k 32 (bit 8 PUNCH, bit 9 GATE) instead of PUNCH or GATE, saves it in record slot 18 (§5.2, §5.3), and lets PUNCH's and GATE's LEDs show the switches while RETRIG is held. Everything else about a switch, whether and where the screen shows it, is the machine's | four values and two switches per machine. A value never with FUNC (fine adjust), TRACK (Control All), LFO (its destination) or a held trig (p-locks); a switch never with TRACK (Control All stays), and a held trig changes nothing. No p-lock and no LFO destination; 0 is every value's and switch's default (a new sound and an old one read 0) | REF2 (Octave; Square, Tone open) |
-| `gesture` | key combinations and their meaning | **exclusive** per combination, situation and scope; no dispatcher. As model27 computes it: a combination's atoms, one set of held keys and one action each, clash in situations and scopes that meet, with another meaning (§4.5) | — | MACHINES held + COLOR/SHAPE/SWEEP/CONTOUR (track-filter), MACHINES held + DECAY/SWEEP/CONTOUR (Model-TG's Attack, Filter, Resonance), FUNC + PITCH on MACRO tracks (lo-fi), TRACK + TRIG 1–6 (control-all-config), TRACK held + FUNC (latching-mute), a TRIG held + PAGE (trig-preview), RETRIG held + notes (arp), TRIG 1–16 in Keys mode (chord-keys), LFO on the LFO page (lfo-plus), RETRIG + knob and RETRIG + PUNCH/GATE (the `shortcut` point); the stock combinations of §4.5 |
+| `gesture` | key combinations and their meaning | **exclusive** per combination, situation and scope; no dispatcher. As model27 computes it: a combination's atoms, one set of held keys and one action each, clash in situations and scopes that meet, with another meaning (§4.5) | — | MACHINES held + COLOR/SHAPE/SWEEP/CONTOUR (track-filter), MACHINES held + DECAY/SWEEP/CONTOUR (Model-TG's Attack, Filter, Resonance), FUNC + PITCH on MACRO tracks (lo-fi), TRACK + TRIG 1–6 (control-all-config), TRACK held + FUNC (latching-mute), a TRIG held + PAGE (trig-preview), RETRIG held + notes (arp), TRIG 1–16 in Keys mode (chord-keys), LFO on the LFO page (lfo-plus), RETRIG + knob and RETRIG + PUNCH/GATE (the `shortcut` point), TRACK held + Delay Time / Reverb Size (the effect slots, §3.5); the stock combinations of §4.5 |
 | `param.sound` | the sound slots k 23–32 and the record slots | **registry** (section 5); computed from the claims in model27 (§4.4) | no k is free any more (notes/56 §3.6) | Model-TG, track-filter, lfo-plus, One-Shot, model27's shortcut layer |
 | `param.descriptor` | the OS's unused descriptors 1–4 ("Error"), which the track-filter turns into real parameters of every machine (p-locks, LFO, CC, NRPN) | **exclusive** | four | track-filter; model27's shortcut layer, machine-scoped (their machine stays −1, so no row, CC, NRPN or LFO list has them) |
 | `midi` | CC and NRPN numbers a package listens to | **registry** | — | track-filter (CC 74, 71; NRPN 1:20, 1:21) |
 | `memory.mask` | freed sprite masks (notes/52): 164 masks, 35 960 bytes; 113 free (18 152 bytes) at release 1.56 | **allocation** by `registry.py` and `sprites.redirect_write` | a mask is redirected in the same tweak that writes it | arp, chord-keys, lfo-plus, track-filter, trig-hold, … |
-| `memory.payload` | code copied at boot from the end of the image to RAM: `0x43000000` (alone) or `0x46700000` (with Model-TG), boot hook at `0x400004b2` (the BSS clear) through a stub in the cave `0x4016cae8` | **allocation**: the builder lays packages out one after the other and fills the copy list | the image must end below `0x40200000`; the stock image ends at `0x401aa140` | every added machine, One-Shot |
+| `memory.payload` | code copied at boot from the end of the image to RAM: `0x43000000` (alone) or `0x46700000` (with Model-TG), boot hook at `0x400004b2` (the BSS clear) through a stub in the cave `0x4016cae8` | **allocation**: the builder lays packages out one after the other and fills the copy list | the image must end below `0x40200000`; the stock image ends at `0x401aa140` | every added machine, One-Shot, the effect slots and their effects |
 | `memory.ram` | RAM the stock OS leaves unused: `0x42800000`–`0x46700000` (the Model:Samples keeps its sample pool there) | **allocation** | the alone payload window `0x43000000` lies inside it: a claim must stay clear of the build's payload (model27's composer refuses a layout that runs into one) | One-Shot's sample pool, `0x43800000`–`0x46700000` since 0.7, above the alone payload |
 
 ### 3.2 Composition rules
 
 | Rule | Meaning | Builder's job |
 |---|---|---|
-| table | N numbered entries | assign numbers (or take them from the registry, section 5.1), refuse above the limit |
+| table | N numbered entries | assign numbers (or take them from the registry, section 5.1), refuse above the limit; for the effect slots the entries are the effects' fixed ids (§5.8), in id order after the stock entry 0 |
 | chain | ordered list of callbacks at one place | sort by `order`, refuse two packages with the same `order` at the same point, fill the table |
 | append | unordered list, every callback runs | fill the table |
 | by machine | one callback per machine; the one of the track's machine runs, otherwise the stock code | fill the table by machine number; each callback still checks its track |
@@ -332,6 +356,14 @@ package, no machine of their own. The composer adds a part to a build only when 
   - `browser.open` goes by the machine of the track the browser loads into;
   - a 100-byte data block holds the first machine, their number, and a table of six methods per point.
 
+- **the effect slots** (`tools/machines/fxslot/`, since 0.6), when a package is an effect (§3.5):
+  - for each slot that has an effect, the mixer's call of the stock effect; in every such build, the encoder
+    handler's call at TRACK + a knob (`0x4001f89a`) and the pattern header's loader and initializer (`0x4005b4b0`,
+    `0x4006155e`);
+  - its data block after its code holds each slot's table (the stock effect, then the effects by id with their
+    process and reset), the names and formatters of the slot's two parameters per entry, the two descriptor tables the
+    names go into, and its state.
+
 A point one machine takes keeps that machine's own hook or entry. So SAMPLE alone, and SAMPLE with a machine that
 takes none of its points, are byte for byte what they were. The web flasher fills the same tables in JavaScript
 (§8).
@@ -344,7 +376,60 @@ takes none of its points, are byte for byte what they were. The web flasher fill
 - the image ends below `0x40200000`;
 - the payload window of a build: `0x43000000` upward alone, `0x46700000`–`0x46800000` with Model-TG; a package's
   `memory.ram` claim must not overlap the window;
-- the sum of the cost of six voices of the heaviest chosen machine plus every chain stage (section 6).
+- the sum of the cost of six voices of the heaviest chosen machine plus every chain stage (section 6);
+- at most 7 effects per slot; a slot's line at most 4 MiB; a slot's dearest effect at most a quarter of a block
+  above the stock effect (§6).
+
+### 3.5 The effect slots
+
+**As built in model27** ([notes/68](https://github.com/durchgemacht/model27/blob/main/notes/68-fx-slots.md) §14 to
+§19, 2026-10-27). The mixer `0x400567ba` calls the delay and the reverb once per audio block, each as
+`fx(out, in, params)` on 32 stereo frames; the builder's part `fxslot` takes those calls for each slot that has an
+effect in the build, and runs the effect the playing pattern chose there, or the stock one.
+
+**The call.** An effect's `process(out, in, params)` runs in the audio interrupt, once per block (32 frames at
+48 kHz, 666.7 µs), in place of the stock effect and with its arguments:
+- `in` is the send bus, 32 stereo frames of signed 32 bits, L at `+0` and R at `+4` (256 bytes in SRAM,
+  `0x8000b990`);
+- `out` is the slot's return in the same shape (`0x8000ba90` delay, `0x8000bb90` reverb); every word is written at
+  every call;
+- `params` points at the stock effect's smoothed words, each value × 256: `P + 428` for the delay (Time at `+0`, Fdbk
+  at `+2`), `P + 432` for the reverb (Size's byte at `+0`, Tone at `+2`).
+
+The C ABI holds: `d2`–`d7`/`a2`–`a6` kept; the EMAC is free, the mixer sets `MACSR` again after the call. Not allowed:
+the interface's code, an allocation, a wait, a lock, the stock effects' lines and DMA. `reset()`, optional, runs in
+the same interrupt just before the first `process` after the effect is chosen (a pattern change, the gesture, a load):
+it must fit in that block. It does not run at start-up, where the payload's variables are zero. As an effect starts,
+the slot gives the stock effect one block of silence, so that its line holds no old sound when it comes back.
+
+**The line.** A delay needs a long line, and the stock delay's belongs to its DMA: every block, whatever the slot
+plays, `0x4005802e` reads it behind the write position and `0x400573fa` writes 32 frames at it. So each slot has a
+line of its own instead:
+- RAM in the payload's variables, first among them, 16-aligned, as large as the largest of the slot's effects asks
+  (`line` in its entry, a multiple of 16 up to 4 MiB);
+- shared by the slot's effects, since one plays at a time; its address is the effect's patch point of kind
+  `fx_line`;
+- zero at start-up, then someone else's after a switch: an effect reads only what it wrote since its reset (a count of
+  the frames written), or clears it in `reset` when that fits in a block;
+- read and written by the CPU alone, through the cache, never by a DMA.
+
+**The choice.** It belongs to the pattern, like the slot's two parameters, whose meaning depends on the effect:
+- bytes 29 and 30 of the pattern's 64-byte header hold the delay slot's id and the reverb slot's, byte 31 a check,
+  `0x5a` + byte 29 + byte 30; a header whose check fails chooses the stock effects (§5.9);
+- the OS saves the header's 64 bytes but loads only its fields (`0x4005b3b4`: bytes 0–28 and 38), and a new pattern
+  keeps the rest (`0x40061526`): the part copies the three bytes in the loader when their check holds, and sets the
+  stock effects in a new pattern; every write of them masks the interrupts;
+- the audio reads the playing pattern's choice every block; an id the build does not hold plays the stock effect and
+  stays in the pattern, so a project moves between builds.
+
+**The gesture.** TRACK held + Delay Time or Reverb Size, four detents a step, steps the shown pattern's choice through
+the slot's table and stops at the ends; TRACK + FUNC + the knob still edits Fdbk or Tone. While an effect plays, the
+slot's two parameters carry its names, its group name and its formatters.
+
+**Reserved, not built:** more than two parameters (`params` may grow, a package with two keeps working); more slots
+(the names `fx.*`, an insert on the main mix for instance, each needing a hook of its own); a MIDI CC for the choice;
+the stock effect called from inside an effect; a formatter of the package's own, whose signature is not written down
+yet.
 
 ## 4. Level C: the manifest
 
@@ -370,8 +455,8 @@ takes none of its points, are byte for byte what they were. The web flasher fill
 | `license`, `credit` | declared | as on the flasher card (`credit: {kind, who, repo}`), the license file next to the sources |
 | `device`, `os` | declared | `"Model:Cycles"`, `"1.13"` |
 | `order` | declared | the package's place among chains (today's tweak `order`); section 5.6 |
-| `build` | declared | the object's recipe (`sources`, `include`, `cflags`, `defines`); `objects`: one relocatable ELF file, the `ld -r` of the sources, committed; `symbols`: `update` and `render`; `keep`: the other symbols the writes need (hooks, view methods); `patch_points`: `{symbol, kind}`, an undefined symbol whose address the builder sets (kinds `machine_index`, `descriptor_base`) |
-| `uses` | declared | one object per extension point, with that point's own fields; a hook as `hook: {at, stock, op, symbol}` (`op` is `jsr` or `jmp`), a vtable entry as `vtable: {at, stock_ptr, symbol}`, each with `why`. The builder checks the stock bytes against the user's file and writes the hook, or the point's dispatcher when another machine of the build takes it too (§3.3). A shortcut is `{"point": "shortcut", "key": "RETRIG", "knob": "COLOR", "param": {"long", "short", "min", "max", "default": 0, "format"}}`: names in printable ASCII, the short one of 4 characters at most; integers with min ≤ 0 ≤ max within −128…127; `format`, optional, a kept symbol of the package written like the OS's formatters (`(object + 0x14, value, buffer)`), the integer one otherwise; the machine reads the value in k 28 to 31 (`params + 0x38 + 2 · i`, i the knob's place in the list). A switch is `{"point": "shortcut", "key": "RETRIG", "press": "PUNCH"}` (or `"GATE"`): no knob, no `param`, off is 0; the machine reads it as bit 8 (PUNCH) or bit 9 (GATE) of k 32 in the sound its note plays (§2.3) and shows it, if it wants, where and when it likes |
+| `build` | declared | the object's recipe (`sources`, `include`, `cflags`, `defines`); `objects`: one relocatable ELF file, the `ld -r` of the sources, committed; `symbols`: `update` and `render` (a machine); `roots`: the entry points of an extension of a stock machine or of an effect (an effect's process first, then its reset and any formatter); `keep`: the other symbols the writes need (hooks, view methods); `patch_points`: `{symbol, kind}`, an undefined symbol whose address the builder sets (kinds `machine_index`, `descriptor_base`; `fx_line` for an effect's line, its only patch point) |
+| `uses` | declared | one object per extension point, with that point's own fields; a hook as `hook: {at, stock, op, symbol}` (`op` is `jsr` or `jmp`), a vtable entry as `vtable: {at, stock_ptr, symbol}`, each with `why`. The builder checks the stock bytes against the user's file and writes the hook, or the point's dispatcher when another machine of the build takes it too (§3.3). A shortcut is `{"point": "shortcut", "key": "RETRIG", "knob": "COLOR", "param": {"long", "short", "min", "max", "default": 0, "format"}}`: names in printable ASCII, the short one of 4 characters at most; integers with min ≤ 0 ≤ max within −128…127; `format`, optional, a kept symbol of the package written like the OS's formatters (`(object + 0x14, value, buffer)`), the integer one otherwise; the machine reads the value in k 28 to 31 (`params + 0x38 + 2 · i`, i the knob's place in the list). A switch is `{"point": "shortcut", "key": "RETRIG", "press": "PUNCH"}` (or `"GATE"`): no knob, no `param`, off is 0; the machine reads it as bit 8 (PUNCH) or bit 9 (GATE) of k 32 in the sound its note plays (§2.3) and shows it, if it wants, where and when it likes. An effect is `{"point": "fx.delay", "id": 1, "process": "digi_process", "reset": "digi_reset", "line": 1048576, "params": [{"long", "short", "format"}, {…}], "name", "short"}` (or `"fx.reverb"`): its id (§5.8); its process and optional reset, both in `build.roots`; `line`, optional, the bytes of the slot's line it needs, together with the patch point `fx_line`; `params`, the slot's two parameters as the effect names them, in the slot's order (delay: Time, Fdbk; reverb: Size, Tone), the long name of 15 characters at most and the short one of 5, `format` none (the slot's stock formatter), `"int"` (0–127) or reserved for a formatter of the package; `name`, at most 15 characters, shown as the parameters' group. An effect's `uses` holds that entry and `memory.ram` claims, nothing else: no hook, no vtable entry; the builder's part takes the OS's places (§3.5) |
 | `claims` | declared | `sound_slots`, `record_slots`, `saved`, `descriptors`, `formatters`, `plock_rows`, `midi`, `gestures`, `ram`, `views`, in the shapes of §4.5: a number or a string takes the holder's own scope (a package's machine); an object names another scope, a range, a situation, a meaning, or what a stock combination it takes did (`replaces`). Hooks are in `uses`; masks, payload and sizes are derived into the build's tweak and `REGISTRY.md`, not written in the manifest |
 | `cost` | declared, measured | section 6 |
 | `stock_behaviour` | declared | `changes`: what a stock function or gesture no longer does on this package's tracks; `fixes`: stock bugs it corrects; `unchanged`: what was proven bit for bit |
@@ -615,6 +700,39 @@ These are *allocations*, not registry numbers: `registry.py` already derives who
 cave bytes and which payload range, and `REGISTRY.md` is the record. The standard changes nothing here except that
 the manifest's `claims.masks` is generated from the same source.
 
+### 5.8 Effect ids
+
+The pattern stores the id of the effect it chose in each slot (§3.5), so the ids are numbers in users' data:
+- 0 is the stock effect;
+- 1–239 are given to effects users get, once, never reused, in one space for both slots;
+- 240–255 are for references and private tests, never offered.
+
+| Id | Slot | Effect | Package | Status |
+|---|---|---|---|---|
+| 1 | `fx.delay` | Digital Delay (PPPCCC's digital delay) | model27 `digidelay` | in the web flasher since model27 0.10 |
+| 254 | `fx.delay` | REFD, the delay slot's reference | model27 `refdelay` | never offered |
+| 255 | `fx.reverb` | REFR, the reverb slot's reference | model27 `refreverb` | never offered |
+
+Both composers refuse two effects with one id in a build. A table generated from the manifests, as the other numbers
+of model27's `REGISTRY.md`, is still to come.
+
+### 5.9 The pattern header
+
+A pattern's header is 64 bytes (`B + 30642` in the working pattern, `A + 14736` in the saved one). The OS saves them
+all (`0x4005ba0a`) but loads only its fields (`0x4005b3b4`: the name 0–15, the words 16, 18, 20, 22, the bytes 24–28
+and 38), and a new pattern's header keeps the rest (`0x40061526`). A package that keeps data there copies it in the
+loader and sets it in the initializer, and claims it as `saved` (`"pattern, header +N"`):
+
+| Bytes | Holder | Content |
+|---|---|---|
+| 0–28, 38 | OS | the pattern's fields |
+| 29–31 | model27's effect slots (§3.5) | the delay slot's id, the reverb slot's id, a check |
+| 32–35, 40–63 | Chord Keys (model27's folder, not in its flasher) | its mark and six words of settings |
+| 36, 37, 39 | — | free |
+
+model27's claims compare saved places as strings, not as byte ranges: a second holder of header bytes needs a range
+check first.
+
 ## 6. The cost model
 
 The budget is a block: 32 frames at 48 kHz, 666.7 µs. Modded-Cycles' model (notes/27, used in notes/47 §9) counts
@@ -646,13 +764,25 @@ A package declares `cost.emulation {mean, max, pattern}` and, when it has it, `c
 `cost.device {percent_per_block}` for a chain stage. The builder sums the worst case of the chosen packages (six
 voices of the heaviest machine plus every stage) and warns above a threshold to be chosen (section 10).
 
-## 7. Examples: SAMPLE, MACRO, track-filter, REF2
+**Effects, as built in model27** (notes/68 §17). An effect declares `cost.emulation {first, mean, max, reset,
+pattern}`: instructions per block of its process called alone after its reset, the reset counted apart, on noise of
+±2^28 into both channels, Time 0 and Fdbk 96 for the delay, Size 64 and Tone 96 for the reverb; the first block, then
+the mean and maximum over 21 blocks after 32 more, so that a delay reads what it wrote. The builder's part declares,
+per slot, the stock effect counted the same way (the delay 2 659, the reverb 8 205) and what the slot adds (about 80
+instructions with the stock choice, 87 with an effect, 200 more in the block of a switch). The proof counts all of it
+on the OS's own code and checks the declared numbers. One effect of a slot plays at a time, so a build's load is per
+slot: its dearest effect plus what the slot adds, less the stock effect (steady), and the block of a switch (peak).
+Taking a block as about 108 225 instructions (166 667 cycles at 1.54 cycles an instruction), both composers warn
+above a tenth of a block steady or half a block in a switch, and refuse a build above a quarter steady. Digital
+Delay costs 3 131 instructions a block, 0.5 % of a block above the stock delay.
+
+## 7. Examples: SAMPLE, MACRO, track-filter, REF2, Digital Delay
 
 §7.1 is SAMPLE's manifest as model27's composer reads it (One-Shot 0.8), §7.4 REF2's, the template for a machine that
-uses every point SAMPLE uses and a shortcut. §7.2 and §7.3 describe MACRO and the track
-filter as in Modded-Cycles 1.56, in the shape of draft 0.1: nobody has packaged them yet, their hooks are listed under
-`claims` instead of in `uses` (§4.2), and values marked `derived` are what the tools would compute, shown so that
-they can be checked against `25-macro.json` and `48-track-filter.json`.
+uses every point SAMPLE uses and a shortcut, §7.5 Digital Delay's, the template for an effect. §7.2 and §7.3
+describe MACRO and the track filter as in Modded-Cycles 1.56, in the shape of draft 0.1: nobody has packaged them
+yet, their hooks are listed under `claims` instead of in `uses` (§4.2), and values marked `derived` are what the
+tools would compute, shown so that they can be checked against `25-macro.json` and `48-track-filter.json`.
 
 ### 7.1 SAMPLE (Cycles One-Shot 0.8, as built in model27)
 
@@ -963,6 +1093,138 @@ after the switches (model27 notes/63 §18):
 - **The claims** (2026-10-23, the switches 2026-10-26): through the shortcut layer, k 28–32 and record slots 18 and
   28–31 of every sound. lfo-plus's clash is computed from them, and so are the track filter's and Model-TG's.
 
+### 7.5 Digital Delay (model27's first effect)
+
+PPPCCC's digital delay (gialloinfuso's
+[PPPCCC-Model-Cycles-1.13-Mods](https://github.com/gialloinfuso/PPPCCC-Model-Cycles-1.13-Mods) 2.0.0, patch 06
+`delay-fx`, MIT) ported to C as an effect of the delay slot, its arithmetic step for step: its sound is theirs bit for
+bit, checked in Unicorn against their own patches. What the port changed is what the slot contract asks: the slot's
+line instead of the stock delay's (1 MiB, one word a frame, as only one of PPPCCC's two is read), a reset that starts
+from silence and reads only what was written since, the delay time's formula written anew. Played on a Model:Cycles on
+2026-10-27, from the command line, then from the web flasher alone and with SAMPLE. Its manifest as model27's
+composer reads it, at
+[`tools/machines/digidelay/manifest.json`](https://github.com/durchgemacht/model27/blob/main/tools/machines/digidelay/manifest.json):
+
+```json
+{
+ "schema": "cycles-mod/0.1",
+ "id": "digidelay",
+ "version": "0.1",
+ "name": "Digital Delay: PPPCCC's bright, clean delay of up to 5.4 s, for the delay slot",
+ "description": "The first real effect of model27's effect slots (notes/68 §18): PPPCCC's digital delay from their Model:Cycles 1.13 Mods 2.0.0, ported to an effect package, the sound theirs bit for bit. The opposite of the dark stock delay: bright and clean, up to 5.4 s, each repeat a little thinner in the lows (a high-pass of about 240 Hz and a low-pass of about 12.8 kHz in the feedback). Mono, the same repeat on both outputs. Time and Fdbk keep their knobs; the line is the delay slot's (1 MiB).",
+ "license": "MIT",
+ "credit": {
+  "kind": "based",
+  "who": "PPPCCC (gialloinfuso)",
+  "repo": "gialloinfuso/PPPCCC-Model-Cycles-1.13-Mods"
+ },
+ "source": "https://github.com/gialloinfuso/PPPCCC-Model-Cycles-1.13-Mods/tree/db7a846f",
+ "device": "Model:Cycles",
+ "os": "1.13",
+ "order": 39,
+ "build": {
+  "sources": [
+   "digidelay.c"
+  ],
+  "include": [
+   "."
+  ],
+  "cflags": [
+   "-std=c99",
+   "-mcpu=54418",
+   "-O2",
+   "-ffreestanding",
+   "-fno-builtin",
+   "-fno-tree-loop-distribute-patterns",
+   "-nostdlib",
+   "-fno-pic",
+   "-fno-common",
+   "-ffunction-sections",
+   "-fdata-sections",
+   "-Wall",
+   "-Wextra",
+   "-Werror"
+  ],
+  "defines": {},
+  "objects": [
+   "digidelay.o"
+  ],
+  "patch_points": [
+   {
+    "symbol": "fx_line",
+    "kind": "fx_line"
+   }
+  ],
+  "roots": [
+   "digi_process",
+   "digi_reset"
+  ]
+ },
+ "uses": [
+  {
+   "point": "fx.delay",
+   "id": 1,
+   "process": "digi_process",
+   "reset": "digi_reset",
+   "line": 1048576,
+   "params": [
+    {
+     "long": "Digi Time",
+     "short": "TIME"
+    },
+    {
+     "long": "Digi Fdbk",
+     "short": "FDBK"
+    }
+   ],
+   "name": "Digital",
+   "short": "DIGI",
+   "why": "an effect of the delay slot: called as the stock delay 0x40057488 is, (out, in, P + 428), when the playing pattern chooses id 1; its line of 262 144 frames is the slot's"
+  }
+ ],
+ "claims": {},
+ "cost": {
+  "emulation": {
+   "first": 2621,
+   "mean": 3131,
+   "max": 3131,
+   "reset": 2,
+   "pattern": "notes/68 §17: instructions per block of the process called alone after its reset (the reset counted apart), on the OS 1.13 in tools/emu/test_fxslot.py section 6 (mcengine.py's counter): noise of +-2^28 into both channels, Time 0 and Fdbk 96 for the delay, Size 64 and Tone 96 for the reverb (x 256), the first block, then the mean and maximum over 21 blocks after 32 more"
+  },
+  "device": {
+   "status": "not measured"
+  }
+ },
+ "stock_behaviour": {
+  "changes": [],
+  "fixes": [],
+  "unchanged": [
+   "the stock delay, whenever the playing pattern has not chosen Digital"
+  ]
+ },
+ "compat": {
+  "built_against": [
+   "model27"
+  ],
+  "requires": [],
+  "conflicts_declared": []
+ },
+ "tests": {
+  "emulation": {
+   "tool": "tools/emu/test_fxslot.py (Unicorn, the OS's own code, notes/68 §18)",
+   "date": "2026-10-27",
+   "build": "alone, with refreverb, and with sampler and refreverb"
+  },
+  "hardware": {
+   "date": "2026-10-27",
+   "by": "maintainer",
+   "build": "digidelay alone from the command line (notes/68 §18.7), then flashed from the web flasher alone and with SAMPLE (§19.4)"
+  },
+  "status": "tested"
+ }
+}
+```
+
 ## 8. Builder and web flasher
 
 **The target**, as in 0.1: an offline builder in Python reads the manifests of the chosen packages, assigns machine
@@ -980,7 +1242,9 @@ and B2, tested on a Model:Cycles on 2026-10-22):
   conflicts (§4.4) and emits one tweak per selection, which `tools/build.py` applies like any other. It needs
   `python3` and the user's official file, no compiler and no assembler. Since step B4 it also adds the shortcut layer
   and the dispatchers where a build needs them (§3.3), and since the switches (0.5) the layer's press and LED hooks
-  only when a machine declares a switch. Not yet: cards from manifests.
+  only when a machine declares a switch. Since 0.6 it lays the effect slots' lines out first among the variables,
+  adds the effect slots where a package is an effect (§3.5) and computes each slot's load (§6). Not yet: cards from
+  manifests.
 - **The registrar runtime**, `tools/machines/registrar/registrar.S`: the detours of the added machines (knob rows,
   records, the machine of a descriptor, the MACHINES page) as 826 bytes of code assembled once at `0x43033000`,
   reading a 128-byte parameter block at `0x43033780` that the composer fills per build (the number of machines, the
@@ -1004,7 +1268,10 @@ B3; notes/63, step B4e).
 - The page (`docs/flasher/composer.js`) fills in what depends on the packages: the registrar's tables, the shortcut
   layer's data block, the dispatchers' tables.
 - `webcompose_check.sh` checks every composition it makes against the Python composer's bytes, with SAMPLE, REF and
-  REF2 alone and together.
+  REF2 alone and together, and since 0.6 with the effects (Digital Delay, REFD, REFR) alone, in both slots, next to
+  the machines and next to an extension of CHORD.
+- An effect is a card like a machine: the page composes every ticked package card into one tweak, machines and
+  effects alike (since 0.6, Digital Delay next to SAMPLE).
 - The claims reach the page too (since 0.4): the packages' and the parts' with them, the offered tweaks' by id. The
   page applies rules 2 and 3 as the Python composer does, and `webcompose_check.sh` compares the conflicts, with
   probes of claims only. Where two cards exclude each other and no hand-written reason exists, the page says the
@@ -1045,11 +1312,17 @@ Pre-linked variants per slot are not needed.
    2026-10-26, REF2's browser hook aside; `menu.track_setup` not started.
 7. **The flasher** builds cards from manifests and fills tables, with the relocator of §8. *Done in model27* for the
    tables (`composer.js`); the cards still come from the tweaks (`gen_flasher_tweaks.py`).
+8. **Effects as packages**: the mixer's delay and reverb as slots, their lines, their cost, a first effect from
+   another project. *Done in model27* (0.6, §3.5): Digital Delay, ported from PPPCCC's mods, in the web flasher and
+   played on a Model:Cycles.
 
 ## 10. Open decisions
 
 - The cost threshold the builder warns at, and whether a chain stage counts once or per track.
-- The two unread places: `track.post_voice`'s contract and the `fx.bus` location; the sound bytes `+86`–`+99`.
+- The unread place: `track.post_voice`'s contract; the sound bytes `+86`–`+99`.
+- For the effects: more than two parameters, more slots (an insert on the main mix), a MIDI CC for the choice, a
+  guard at run time (the governor mutes voices only), a formatter of an effect's own. The gesture TRACK + Delay Time /
+  Reverb Size is not a declared claim yet: the vocabulary has no names for knobs 8 to 15.
 - The stock MIDI map for the `midi` registry.
 - Who assigns registry numbers: the maintainer on merge, as with Modded-Cycles' "tested" status. In model27 the
   claims stand in for a number file (§5).
@@ -1077,6 +1350,16 @@ Decided in 0.5
   shows them is the machine's;
 - TRACK keeps Control All; a held trig changes nothing;
 - the builder's existing shortcut layer takes them (0.2), not a new part.
+
+Decided in 0.6 ([model27 notes/68](https://github.com/durchgemacht/model27/blob/main/notes/68-fx-slots.md) §9, §13
+to §17):
+- the delay and the reverb are two slots, each a table by id with the stock effect as entry 0, not a chain: one effect
+  plays per slot (§3.1);
+- the choice belongs to the pattern, in its header's bytes 29 to 31, as its effect parameters do; TRACK + Delay Time /
+  Reverb Size steps it (§3.5, §5.9). A choice per device came first and was replaced;
+- each slot has a line of its own, shared by its effects; the stock delay's line stays its DMA's (§3.5);
+- an effect's cost is counted per block and the builder's rule goes per slot; no guard at run time for now (§6);
+- effect ids are fixed, 1–239 for effects users get, 240–255 for references (§5.8).
 
 ## 11. Sources
 
@@ -1120,3 +1403,14 @@ Read for this draft, all local copies:
   - the OS 1.13: `0x4001ac4a` and its two callers, MainScreenView's LED method `0x4001cbfe`, the smoother `0x40058474`
     and its caller `0x4005979e`, the save and load tables `0x4010ee4c` and `0x4010eea8`;
   - notes 63 §15 to §18, 66 §2.1 and 47 §4.
+- For 0.6, model27 after notes/68 §19 (2026-10-27):
+  - `tools/machines/fxslot/` (`fxslot.c`, `entries.S`, `part.json`), `tools/machines/refdelay/`, `refreverb/` and
+    `digidelay/`, `tools/gen_digidelay.py`;
+  - `tools/compose.py` (`fx_layer`, `fx_cost`, the lines, `web_package`, `web_part`) and `docs/flasher/composer.js`;
+  - `tools/emu/test_fxslot.py` and the maintainer's runs of it, `--pppccc` included;
+  - PPPCCC-Model-Cycles-1.13-Mods 2.0.0 (`db7a846f`): patches 00 `core` and 06 `delay-fx`, `src/v2/g2_delayfx.py`,
+    `src/gen_digidelay_113.py`, `src/gen_fx4.py`;
+  - the OS 1.13: the mixer `0x400567ba`, the delay's line and DMA (`0x4005802e`, `0x400573fa`), the pattern header's
+    loader `0x4005b3b4`, saver `0x4005ba0a` and initializer `0x40061526`, the encoder handler `0x4001f4f0`, the
+    descriptors 37 to 40 and their interface objects;
+  - notes 68, 42 §4 and §5, 23.

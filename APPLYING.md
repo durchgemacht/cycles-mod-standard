@@ -1,8 +1,9 @@
 # Applying the standard to your mod — a checklist
 
-**Status:** draft 0.5, 2026-10-26, companion to [STANDARD.md](STANDARD.md). Written for the author of an existing
+**Status:** draft 0.6, 2026-10-27, companion to [STANDARD.md](STANDARD.md). Written for the author of an existing
 Model:Cycles mod and the AI assistant they work with. Sections 1 to 11 inventory a mod; section 12 ports a machine to
-model27's builder, step by step, with REF2 as the template.
+model27's builder, step by step, with REF2 as the template; section 13 ports an effect, with Digital Delay as the
+template.
 **Authors:** durchgemacht and Claude. **License:** MIT ([LICENSE](LICENSE)).
 
 **What sections 1 to 11 produce:** an *inventory* of what the mod touches, a *manifest*, a list of *collisions* with
@@ -11,6 +12,7 @@ Much of the target exists:
 - [model27](https://github.com/durchgemacht/model27)'s composer reads manifests and registers added machines
   (STANDARD.md §8);
 - it adds the machine shortcuts and the dispatchers for the points SAMPLE uses (STANDARD.md §3.3);
+- it plays effects from packages in the mixer's delay and reverb slots, chosen per pattern (STANDARD.md §3.5);
 - its web flasher does the same in the browser;
 - its tools compute the clashes over saved slots, key combinations, descriptors, formatters, MIDI and memory from
   what each mod declares, its claims, and its registry lists them (STANDARD.md §4.4, §4.5).
@@ -18,7 +20,7 @@ Much of the target exists:
 There is still no shared header, and no number file: in model27 the claims stand in for one (STANDARD.md §5). Do not
 let anyone, human or AI, invent those for your mod alone: three mods would get three different inventions, which is
 the problem the standard is meant to end. The reference implementation is model27's (STANDARD.md §8, §9). To move a
-machine onto it, follow section 12.
+machine onto it, follow section 12; an effect, section 13.
 
 - [0. What you need](#0-what-you-need)
 - [1. Describe the mod in five lines](#1-describe-the-mod-in-five-lines)
@@ -33,6 +35,7 @@ machine onto it, follow section 12.
 - [10. A prompt for your AI assistant](#10-a-prompt-for-your-ai-assistant)
 - [11. What not to do yet](#11-what-not-to-do-yet)
 - [12. Porting a machine to model27's builder](#12-porting-a-machine-to-model27s-builder)
+- [13. Porting an effect to model27's builder](#13-porting-an-effect-to-model27s-builder)
 
 ## 0. What you need
 
@@ -166,6 +169,9 @@ Take the inventory of section 2 and, for each item, find the row of STANDARD.md 
 | a rewritten draw entry `0x400ffe30` or `0x4010053c` | `view.main`, `view.knob` | by machine (the selected track) |
 | RETRIG held + COLOR, SHAPE, SWEEP or CONTOUR on your machine's tracks | `shortcut` | by machine, from the builder's list |
 | RETRIG held + a press on PUNCH or GATE on your machine's tracks (a switch) | `shortcut` | by machine, from the builder's list |
+| a hook on the mixer's call of the delay `0x4005699c` or of the reverb `0x40056a2c` | `fx.delay`, `fx.reverb` | table by id: the effect slots (section 13) |
+| a hook on the delay line's write DMA `0x40056a3c`, or the stock delay's line | none: an effect gets the slot's own line (STANDARD.md §3.5) | — |
+| a key combination that picks the effect | `gesture`, owned by the effect slots (TRACK held + Delay Time / Reverb Size) | exclusive |
 | an entry appended to Track Setup | `menu.track_setup` | append |
 | a key combination | `gesture` | exclusive |
 | sound slots, record slots | `param.sound` | registry |
@@ -494,4 +500,103 @@ report each result; where one fails, stop and say why.
 
 Do not invent shortcuts, sound or record slots, points or dispatchers. Do not change model27's composer, its parts or
 SAMPLE. Do not mark anything tested: the maintainer tests on the device.
+```
+
+## 13. Porting an effect to model27's builder
+
+An effect replaces the mixer's delay or reverb while the playing pattern chooses it (STANDARD.md §3.5). It is a
+package like a machine, smaller: one function per audio block, an optional reset, two parameters, an id. model27's
+Digital Delay (`tools/machines/digidelay/`, STANDARD.md §7.5) is the template: a port of PPPCCC's digital delay whose
+sound stays theirs bit for bit.
+
+### 13.1 The object
+
+Write the effect in C (or assembly) in `tools/machines/<id>/`, compile it with REF2's flags (`-mcpu=54418 -O2
+-ffreestanding -fno-pic -fno-common -ffunction-sections -fdata-sections`), and commit the `ld -r` of the objects as
+`<id>.o`. List the entry points in `build.roots`, the process first, then the reset. A generator in the shape of
+`tools/gen_digidelay.py` writes the object, the tweak of the effect alone (the web flasher's card needs it) and the
+license text, and checks them with `--check`.
+
+### 13.2 The call
+
+```c
+void my_process(int32_t *out, const int32_t *in, const int16_t *params);
+void my_reset(void);
+```
+
+- `in`, `out`: 32 stereo frames of signed 32 bits, L then R; write all 64 words of `out` at every call.
+- `params`: the slot's two parameters, × 256: Time and Fdbk for the delay, Size (its byte) and Tone for the reverb.
+  Their names on the screen are yours (`params` in the manifest), their knobs and p-locks stay the OS's.
+- It runs in the audio interrupt: keep `d2`–`d7`/`a2`–`a6` (the C ABI does), use the EMAC freely, call nothing of the
+  interface, never allocate, wait or lock.
+- `my_reset` runs just before the first block after the effect is chosen, in that block: keep it short.
+- A delay time that follows the tempo: the stock formula reads Time and the tempo at `0x40149310` (STANDARD.md
+  §3.5); write it in your own code.
+
+### 13.3 The line
+
+If the effect needs a long buffer, do not take the stock delay's line: ask for the slot's.
+
+```c
+extern int32_t fx_line[];                   /* the slot's line: its address is your patch point of kind fx_line */
+```
+
+- `"line": <bytes>` in the slot entry, a multiple of 16 up to 4 MiB, and `{"symbol": "fx_line", "kind": "fx_line"}`
+  in `build.patch_points`;
+- the slot's other effects use the same RAM when they play: after your reset, read only what you wrote since (count
+  the frames written, as Digital Delay's `n` does), or clear it in the reset if that fits in a block (32 KB costs a
+  quarter of one);
+- the CPU only, through the cache; zero at start-up.
+
+### 13.4 The manifest
+
+Copy Digital Delay's (STANDARD.md §7.5) and change:
+- `id`, `version`, `name`, `description`, `license`, `credit`, `source`, `order`;
+- in `uses`, the slot entry: `point`, `id` (ask the maintainer for one, STANDARD.md §5.8: 1–239 for effects users
+  get), `process`, `reset`, `line`, `params` (two, in the slot's order, the long name of 15 characters at most and the
+  short one of 5, `format` none or `"int"`), `name` (at most 15 characters);
+- `claims`: usually none; `memory.ram` only for RAM beyond your variables and the line;
+- `cost`: section 13.5;
+- `tests`: what you ran, and `status` `experimental` until the maintainer's device.
+
+### 13.5 Cost
+
+Count your process with the proof's cost section (`test_fxslot.py`, section 6): instructions per block, the first
+block, then the mean and maximum over 21 blocks after 32 more, the reset apart, and declare them in
+`cost.emulation`. The builder compares the slot's dearest effect with the stock one: past a tenth of a block it warns,
+past a quarter it refuses the build.
+
+### 13.6 Proofs
+
+- Add your effect to `tools/emu/test_fxslot.py`: a model of its arithmetic in Python, bit for bit (as `Digital`), and
+  its selections (alone, with the other slot's effect, with SAMPLE); the proof runs the slot's sites, the audio
+  through the playing pattern, the gesture, the pattern header and the cost on the OS's own code.
+- When the effect comes from another firmware mod, compare it with that mod's own code too, as `--pppccc` does for
+  Digital Delay: the original applied to the official OS, both run on the same blocks.
+- `tools/webcompose_check.sh <official file>` with a selection of yours; `claims.py --check`, `check_overlaps.py`,
+  `registry.py --check`; then the maintainer's device.
+
+### 13.7 Not allowed
+
+- a hook of your own on the mixer, the encoder handler or the pattern header: the effect slots take them;
+- the stock effects' lines and DMA (`0x42340000`–`0x42800000`, `0x400573fa`, `0x40057942`);
+- an id that is not yours, or one of 240–255 in a card;
+- a reset that clears more than a block can afford, or reading the line before you wrote it;
+- more than two parameters for now (reserved, STANDARD.md §3.5).
+
+### 13.8 A prompt for your AI assistant
+
+```text
+Read STANDARD.md (sections 3.5, 5.8, 6 and 7.5) and APPLYING.md section 13 from <path to the standard>, then
+model27's tools/machines/digidelay/ (manifest.json, digidelay.c), tools/gen_digidelay.py and tools/emu/test_fxslot.py
+in <path to model27>.
+
+Port the effect in <path to its sources> to a package in model27's tools/machines/<id>/, following APPLYING.md
+section 13 step by step: the object (13.1), the call (13.2), the slot's line only if it needs a long buffer (13.3), the
+manifest (13.4), its cost (13.5). Keep the effect's arithmetic as it is; where the original reads or writes the OS
+outside the call's arguments, say so and stop. Write the generator and the proofs by copying model27's for Digital
+Delay, with a Python model of the arithmetic, and run every check named in 13.6; report each result.
+
+Do not invent ids, slots, parameters or hooks. Do not change model27's composer or its parts. Do not mark anything
+tested: the maintainer tests on the device.
 ```

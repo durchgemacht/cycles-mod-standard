@@ -1,13 +1,14 @@
 # Cycles Mod Standard
 
-**Draft 0.5, public.** This page says what the idea is, first in plain words, then with a bit more technical
+**Draft 0.6.** This page says what the idea is, first in plain words, then with a bit more technical
 detail. The full text with every address, rule and source is in [STANDARD.md](STANDARD.md). Much of it is built:
 [model27](https://github.com/durchgemacht/model27) composes added machines from manifests, tested on a Model:Cycles,
 and lets them share the screen, the browser and saved sounds and use a fixed list of shortcuts and switches, proven
-in an emulator.
+in an emulator. Since draft 0.6 it composes effects too: a package that plays in the delay or the reverb slot, chosen
+per pattern, tested on a Model:Cycles with the first one, Digital Delay.
 Its tools also compute which mods clash over a saved slot, a key combination or a display, from what each mod
 declares (see [Status and next steps](#status-and-next-steps)). To port a machine, follow [APPLYING.md](APPLYING.md)
-§12.
+§12; to port an effect, §13.
 
 **Authors:** durchgemacht and Claude. **License:** MIT ([LICENSE](LICENSE)).
 
@@ -148,14 +149,15 @@ detours such a place itself; it registers a callback in its manifest and the bui
 | `screen.tick` | the screen's redraw, about 30 times a second | **append**: every machine | One-Shot (loads samples in the background), REF2 |
 | `view.main`, `view.knob` | the main screen and the knob value screen | **by machine**: the selected track's machine draws, or the stock screen | One-Shot, REF2 |
 | `shortcut` | RETRIG held + COLOR, SHAPE, SWEEP or CONTOUR on a machine's tracks, and RETRIG held + a press on PUNCH or GATE (since 0.5) | **by machine**, from a fixed list: up to four extra values and two on/off switches per machine, saved with the sound; while RETRIG is held, PUNCH's and GATE's LEDs show the switches | REF2 (Octave; Square, Tone open) |
+| `fx.delay`, `fx.reverb` | the mixer's delay and reverb | **table by id**: the stock effect, then the build's effects; the playing pattern chooses one, with TRACK held + Delay Time or Reverb Size; each slot has a line of its own for its effects | Digital Delay; model27's two reference effects |
 | `menu.track_setup` | the FUNC + TRACK menu | **append** | nobody yet (read for One-Shot's loop/reverse study) |
 | `gesture` | a key combination and its meaning | **exclusive** per combination, situation and scope; computed in model27 | track filter, Model-TG, MACRO, Control All Config, arp, and more (STANDARD.md §5.4); stock |
 | `param.sound`, record slots | the spare slots of a sound | **registry**; computed from the claims in model27 | Model-TG, track filter, LFO-Plus, One-Shot, model27's shortcuts |
 | `param.descriptor` | the OS's four unused "Error" parameter descriptors | **exclusive** | track filter (makes them real parameters with p-locks, LFO, CC) |
 | `memory.*` | freed sprite masks, the payload copied to RAM at boot, unused RAM | **allocation** by the builder | everyone with code |
 
-Two places are marked *unread* in the draft: the chain directly after the voice loop, and the delay/reverb bus. A
-third effect would need the second one read first.
+One place is marked *unread* in the draft: the chain directly after the voice loop. The delay and reverb, unread
+until draft 0.5, are the effect slots since 0.6.
 
 ## The manifest, trimmed
 
@@ -226,6 +228,10 @@ share of a block read on a real device (the number that counts, because the emul
 Syntakt engines counted like stock machines and cost almost twice as much on the box). The builder sums the worst
 case of what is chosen and warns above a threshold.
 
+An effect declares its count per audio block, and only one effect plays in a slot at a time: the builder compares the
+dearest effect of each slot with the stock one, warns above a tenth of a block and refuses a build above a quarter.
+Digital Delay costs half a percent of a block more than the stock delay.
+
 ## How a build works
 
 As built in model27 for added machines:
@@ -264,14 +270,19 @@ claims. Still to come: cards generated from manifests.
   registry lists them, and the web flasher explains a computed clash in English and French;
 - **two switches** (2026-10-26): RETRIG + PUNCH and RETRIG + GATE, each on or off and saved with the sound, on the
   tracks of a machine that wants them; REF2 uses them for Square and Tone open. This is proven in the emulator and
-  played on a Model:Cycles (2026-10-26).
+  played on a Model:Cycles (2026-10-26);
+- **the effect slots** (2026-10-27): the mixer's delay and reverb take effects from packages, chosen per pattern with
+  TRACK held + Delay Time or Reverb Size, each slot with a line of its own and a counted cost. The first effect,
+  Digital Delay, is PPPCCC's digital delay ported to a package, its sound theirs bit for bit; it is offered in
+  model27's web flasher and played on a Model:Cycles from it, alone and next to SAMPLE.
 
 The technical record is in model27's notes
 [59](https://github.com/durchgemacht/model27/blob/main/notes/59-level-b-builder.md),
 [60](https://github.com/durchgemacht/model27/blob/main/notes/60-level-b2-relocator-runtime.md),
 [61](https://github.com/durchgemacht/model27/blob/main/notes/61-level-b3-web-flasher.md),
-[63](https://github.com/durchgemacht/model27/blob/main/notes/63-level-b4-shortcuts-dispatchers.md) and
-[65](https://github.com/durchgemacht/model27/blob/main/notes/65-level-c-claims-check.md).
+[63](https://github.com/durchgemacht/model27/blob/main/notes/63-level-b4-shortcuts-dispatchers.md),
+[65](https://github.com/durchgemacht/model27/blob/main/notes/65-level-c-claims-check.md) and
+[68](https://github.com/durchgemacht/model27/blob/main/notes/68-fx-slots.md).
 
 **Checked for draft 0.1:**
 
@@ -289,13 +300,16 @@ model27); compute conflicts and compare with the hand lists (done in model27); a
 time, each proven in emulation like a mod (done in model27 for the five points SAMPLE uses); last, the flasher (done
 in model27).
 
-Open decisions: the cost threshold; the two unread places in the OS; the stock MIDI map; who assigns registry
-numbers. Decided in 0.2: the web flasher uses a relocator. Decided in 0.3: machine numbers stay the build's
+Open decisions: the cost threshold for machines; the unread place after the voice loop; the stock MIDI map; who
+assigns registry numbers; for effects, more parameters, more slots, a MIDI choice and a guard at run time. Decided
+in 0.2: the web flasher uses a relocator. Decided in 0.3: machine numbers stay the build's
 ("projects belong to a build"); shortcuts are a fixed list; the shared points go by machine. Decided in 0.4: the
 tweaks' claims live in one declared file; key combinations are written on a fixed vocabulary and compared in
 situations and scopes; taking a stock combination must say what it replaces; two displays on one screen are a
 warning; the web flasher explains a computed clash. Decided in 0.5: two switches join the shortcuts, RETRIG + PUNCH
 and RETRIG + GATE; their LEDs show them while RETRIG is held, and the rest of how a switch shows is the machine's.
+Decided in 0.6: the delay and the reverb are two slots, one effect each at a time; the pattern keeps the choice; each
+slot has its own line; effect ids are fixed; an effect's cost is checked per slot.
 
 ## Read more
 
@@ -304,5 +318,6 @@ and RETRIG + GATE; their LEDs show them while RETRIG is held, and the rest of ho
   other, the register of free space), 23 and 25 (load measurements and the governor).
 - Cycles One-Shot's TECHNICAL.md, sections 3 to 6 (the machine mechanics, the audio side, sounds and records).
 - model27's notes 59 to 65: the builder as built, its proofs, the web flasher, the shortcuts and dispatchers, what
-  users should know about projects and machines, and the claims.
-- [APPLYING.md](APPLYING.md): inventory a mod (sections 1 to 11), port a machine to model27's builder (section 12).
+  users should know about projects and machines, and the claims; note 68, the effect slots.
+- [APPLYING.md](APPLYING.md): inventory a mod (sections 1 to 11), port a machine to model27's builder (section 12),
+  port an effect (section 13).

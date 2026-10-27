@@ -1,6 +1,6 @@
 # Cycles Mod Standard
 
-**Draft 0.6.** This page says what the idea is, first in plain words, then with a bit more technical
+**Draft 0.6, public.** This page says what the idea is, first in plain words, then with a bit more technical
 detail. The full text with every address, rule and source is in [STANDARD.md](STANDARD.md). Much of it is built:
 [model27](https://github.com/durchgemacht/model27) composes added machines from manifests, tested on a Model:Cycles,
 and lets them share the screen, the browser and saved sounds and use a fixed list of shortcuts and switches, proven

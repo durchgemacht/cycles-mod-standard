@@ -1,6 +1,6 @@
 # Cycles Mod Standard — draft 0.6
 
-**Status:** draft 0.6, 2026-10-27. Draft 0.1 (2026-10-21) described a target only. Draft 0.2 described the
+**Status:** draft 0.6, 2026-10-27, public. Draft 0.1 (2026-10-21) described a target only. Draft 0.2 described the
 `machine` point of Level B and the manifest of Level C as [model27](https://github.com/durchgemacht/model27) built
 them: a composer that places committed objects and registers them through a runtime, with no toolchain at build
 time, tested on a Model:Cycles on 2026-10-22 (§8). Draft 0.3 added what model27 built next:

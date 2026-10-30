@@ -1,6 +1,6 @@
-# Cycles Mod Standard — draft 0.6
+# Cycles Mod Standard — draft 0.7
 
-**Status:** draft 0.6, 2026-10-27, public. Draft 0.1 (2026-10-21) described a target only. Draft 0.2 described the
+**Status:** draft 0.7, 2026-10-30. Draft 0.1 (2026-10-21) described a target only. Draft 0.2 described the
 `machine` point of Level B and the manifest of Level C as [model27](https://github.com/durchgemacht/model27) built
 them: a composer that places committed objects and registers them through a runtime, with no toolchain at build
 time, tested on a Model:Cycles on 2026-10-22 (§8). Draft 0.3 added what model27 built next:
@@ -33,6 +33,17 @@ And then the effects (2026-10-27):
 
 The first effect is Digital Delay, PPPCCC's digital delay ported to a package, its sound theirs bit for bit; it was
 played on a Model:Cycles from the web flasher on 2026-10-27, alone and next to SAMPLE (§7.5).
+
+And then a fourth view (2026-10-30):
+- `view.note`, the draw of the view that shows a held trig's note, velocity and length over the left half, by machine
+  as the other views (§3.1, §3.3);
+- a machine's knob draw may draw with a trig held, for its own parameter, and find the held trig's values as the OS
+  does (§3.1, [APPLYING.md](APPLYING.md) §12.5).
+
+SAMPLE uses both from Cycles One-Shot 0.12 on: while Start or Length turns with a trig held, its whole view shows the
+trig's locks. model27 has built the point (its dispatchers 0.3) and given REF2 a draw of it, proven in emulation on
+the OS's own code (2026-10-30); One-Shot's own image with SAMPLE 0.12 played in the digiemu emulator and on a
+Model:Cycles (2026-10-30). The dispatcher of `view.note`, which needs SAMPLE 0.12 in model27, is still to come (§9).
 **Authors:** durchgemacht and Claude.
 **License:** MIT ([LICENSE](LICENSE)).
 **Scope:** mods for the Elektron Model:Cycles OS 1.13 that are built from the user's own official file with
@@ -43,6 +54,13 @@ but not followed through in the OS, it says so. Addresses are virtual addresses 
 
 **Applying it to an existing mod:** [APPLYING.md](APPLYING.md) is the checklist for authors and their AI
 assistants. It produces an inventory, a manifest, the collisions and the deviations of a mod, not a rewrite.
+
+**Changes from 0.6:**
+- §3.1: the point `view.note`; `view.knob` may draw with a trig held;
+- §3.3: the dispatchers' fifth point and their 124-byte block;
+- §4.1, §4.5: `view.note` among the uses, `note` among the views;
+- §7.1: what One-Shot 0.12 adds; §7.4: REF2 0.2's manifest;
+- §8 to §11: brought up to date.
 
 **Changes from 0.5:**
 - §1: the terms *effect* and *slot*;
@@ -304,7 +322,8 @@ and checked byte for byte by `check_overlaps.py`, as today.
 | `sound.copy` | the sound's copy of its parameters by record slot (`0x4001461c`, slot 17 of `Sound`'s vtable), whose bound k ≤ 22 at `0x4005aa34`/`0x4005aa54` drops everything above (notes/47 §4.3) | **chain** | contract to be read from notes/47 §4 | track-filter |
 | `browser.open` | the PRESET browser reads the opened file: `0x400a6602` (`jsr 0x400a3052`) | **by machine**, as built in model27: the hook of the machine of the track the browser loads into (the browser object's `+664`), otherwise the stock read; a machine's hook takes a0 = &result, `4(sp)` = &handle, a2 = the browser's pointer and the caller's d2–d7 (d4: the entry's index), and ends in the stock read unless it takes the file | one hook per machine | One-Shot, REF2 (sample-preview, with Model-TG, plays files from the same browser) |
 | `screen.tick` | the screen's redraw asks whether to draw: `0x400075f0` (`jsr 0x40076be4`), about 30 Hz, UI task | **append**, as built in model27: every machine's hook in machine order, then the stock `0x40076be4(view)` once; each hook also ends with that getter, which only reads the view's `+32`, and returns its answer | the redraw also runs from another task (screen copy); a hook takes its own lock if it needs one (One-Shot's tick does) | One-Shot, REF2 |
-| `view.main`, `view.knob` | entry `+16` of MainScreenView's vtable (`0x400ffe30`, stock `0x4001b22a`) and of the knob view's (`0x4010053c`, stock `0x4001e40a`): the draw method | **by machine**, as built in model27: the draw of the selected track's machine, otherwise the stock draw; each draw still checks the track itself and calls the stock draw in every case it does not take, so that it works as the point's only taker too | one draw per machine and view; level-pan-values draws on the main screen through other hooks (`0x400081f2`, `0x4001aa4e`) and is not a byte conflict, but a functional one this point would make visible | One-Shot, REF2 |
+| `view.main`, `view.knob` | entry `+16` of MainScreenView's vtable (`0x400ffe30`, stock `0x4001b22a`) and of the knob view's (`0x4010053c`, stock `0x4001e40a`): the draw method | **by machine**, as built in model27: the draw of the selected track's machine, otherwise the stock draw; each draw still checks the track itself and calls the stock draw in every case it does not take, so that it works as the point's only taker too. Since 0.7 a knob draw may draw with a trig held, for its own parameter: the knob view then shows the held trig's value, and a machine finds it as the OS does (the first held step with a lock of the parameter or a sound lock: entries +96, +108 and +80 of the knob view's vtable, §7.1) | one draw per machine and view; level-pan-values draws on the main screen through other hooks (`0x400081f2`, `0x4001aa4e`) and is not a byte conflict, but a functional one this point would make visible | One-Shot, REF2 |
+| `view.note` | entry `+16` of NoteVelocityView's vtable (`0x40102578`, stock `0x400299de`, the only reference to it): the draw of a held trig's note, velocity and length over the left half (columns 0–63), which does nothing without a held trig (`0x4006b736`) and is drawn after the main screen and the knob view | **by machine**, as `view.main` | one draw per machine; a draw that leaves the screen as it is lets the main screen's or the knob view's drawing stand on the left half too | One-Shot (from 0.12), REF2 (from 0.2) |
 | `menu.track_setup` | FUNC + TRACK; TrackMenuView is rebuilt at every opening by its one caller `0x4001c510` (`jsr 0x4003e020`); entries are 84-byte MenuItems (`0x400734b0`, vtable `0x40103470`) with four `std::function` callbacks, appended with `0x400732d6(menu, item, 12)`; strings via `0x400f980c` | **append**, in `order`; a package gives label, value text, change callback and a scope (all tracks, or tracks of its machine) | the MenuItem ABI is the risk; the shared header wraps it once | — (read for One-Shot's loop/reverse, not built) |
 | `shortcut` | on a track of the machine that declares it, RETRIG held + COLOR, SHAPE, SWEEP or CONTOUR (a value): the knob lookup's vtable entry `0x401005a8` (stock `0x4001e814`); RETRIG held + a press on PUNCH or GATE (a switch): the function both presses call, `0x4001ac4a` (its first 6 bytes; its only callers are PUNCH's and GATE's cases of MainScreenView's key handler, `0x4001c2d2` and `0x4001caa2`), and MainScreenView's LED method at `0x4001cc86` (6 bytes, LED 19 PUNCH, LED 20 GATE) | **by machine**: one shortcut per knob or key and machine, from the builder's fixed list (model27: the four knobs, and PUNCH and GATE since 0.5). The builder's shortcut layer shows a value through the OS's unused descriptors 1–4 and saves it in k 28–31 and record slots 28–31; it flips a switch in k 32 (bit 8 PUNCH, bit 9 GATE) instead of PUNCH or GATE, saves it in record slot 18 (§5.2, §5.3), and lets PUNCH's and GATE's LEDs show the switches while RETRIG is held. Everything else about a switch, whether and where the screen shows it, is the machine's | four values and two switches per machine. A value never with FUNC (fine adjust), TRACK (Control All), LFO (its destination) or a held trig (p-locks); a switch never with TRACK (Control All stays), and a held trig changes nothing. No p-lock and no LFO destination; 0 is every value's and switch's default (a new sound and an old one read 0) | REF2 (Octave; Square, Tone open) |
 | `gesture` | key combinations and their meaning | **exclusive** per combination, situation and scope; no dispatcher. As model27 computes it: a combination's atoms, one set of held keys and one action each, clash in situations and scopes that meet, with another meaning (§4.5) | — | MACHINES held + COLOR/SHAPE/SWEEP/CONTOUR (track-filter), MACHINES held + DECAY/SWEEP/CONTOUR (Model-TG's Attack, Filter, Resonance), FUNC + PITCH on MACRO tracks (lo-fi), TRACK + TRIG 1–6 (control-all-config), TRACK held + FUNC (latching-mute), a TRIG held + PAGE (trig-preview), RETRIG held + notes (arp), TRIG 1–16 in Keys mode (chord-keys), LFO on the LFO page (lfo-plus), RETRIG + knob and RETRIG + PUNCH/GATE (the `shortcut` point), TRACK held + Delay Time / Reverb Size (the effect slots, §3.5); the stock combinations of §4.5 |
@@ -351,10 +370,11 @@ package, no machine of their own. The composer adds a part to a build only when 
     per machine a byte of the presses it declared (bit 0 PUNCH, bit 1 GATE; eight machines at most), and per machine
     and knob the shortcut's names, range, default and formatter;
 - **the dispatchers** (`tools/machines/dispatch/`), when two machines take the same point:
-  - `view.main` and `view.knob` go by the selected track's machine;
+  - `view.main`, `view.knob` and, since 0.3 of the part, `view.note` go by the selected track's machine;
   - `screen.tick` goes to every machine;
   - `browser.open` goes by the machine of the track the browser loads into;
-  - a 100-byte data block holds the first machine, their number, and a table of six methods per point.
+  - a 124-byte data block holds the first machine, their number, and a table of six methods per point (100 bytes
+    before `view.note`).
 
 - **the effect slots** (`tools/machines/fxslot/`, since 0.6), when a package is an effect (§3.5):
   - for each slot that has an effect, the mixer's call of the stock effect; in every such build, the encoder
@@ -436,9 +456,9 @@ yet.
 ### 4.1 Principles
 
 - **Kind-neutral core.** A package does not say what it *is*. It lists the extension points it *uses*. One-Shot
-  uses `machine`, `browser.open`, `sound.record`, `screen.tick`, `view.main`, `view.knob` and `memory.ram`; the
-  track-filter uses `track.post_voldist`, `sound.record`, `param.tables`, `sound.copy`, `param.descriptor`,
-  `gesture`, `midi`, `memory.mask`. A format with one kind per mod fails on both.
+  uses `machine`, `browser.open`, `sound.record`, `screen.tick`, `view.main`, `view.knob`, `view.note` (from 0.12)
+  and `memory.ram`; the track-filter uses `track.post_voldist`, `sound.record`, `param.tables`, `sound.copy`,
+  `param.descriptor`, `gesture`, `midi`, `memory.mask`. A format with one kind per mod fails on both.
 - **Derived versus declared.** Hooks, writes, payload, sizes, masks and the computed conflicts are *derived* by tools
   from the objects and the registry, as `REGISTRY.md` is derived today, and are never edited by hand. Gestures,
   scopes, stock-behaviour changes, cost measurements and tests are *declared* by the author.
@@ -542,7 +562,7 @@ What a mod takes beyond its writes, in one shape, read and checked by model27's 
     or as `{"slots": [first, last], "scope": ...}`;
   - `saved` (`{"where", "bytes"}`), `formatters` (`{"knob", "object", "replaces"}`), `plock_rows` (true when the mod
     re-numbers the p-lock rows of k ≥ 23);
-  - `midi` (`{"cc": [...], "nrpn": ["MSB:LSB"]}`), `ram` (`[first, end)`), `views` (`main`, `knob`).
+  - `midi` (`{"cc": [...], "nrpn": ["MSB:LSB"]}`), `ram` (`[first, end)`), `views` (`main`, `knob`, `note`).
 - **A key combination** is written as the table of §5.4 writes it, the held keys then one action joined by `+`:
   `TRACK + TRIG 1-6`, `MACHINES + COLOR/SHAPE/SWEEP/CONTOUR`. `1-6` and `/` expand; the tools compare *atoms*, one
   set of held keys and one action each. The words:
@@ -887,6 +907,21 @@ at `a279f3f`, unchanged:
   rule 1 (the same sound-record hooks) already found; declared only: sample preview, whose reason is text; a warning:
   level-pan-values draws on the main screen too.
 
+**What One-Shot 0.12 adds** (2026-10-30, its `machine/view.c` and `machine/os.h`): a fourth view entry, and a knob
+draw that draws with a trig held.
+- `uses` gains `{"point": "view.note", "vtable": {"at": "0x40102578", "stock_ptr": "0x400299de", "symbol":
+  "smp_note_draw"}}`, `keep` gains `smp_note_draw`, and the claims' `views` gain `note`.
+- While Start or Length turns on a SAMPLE track with a trig held, `smp_knob_draw` draws the whole view for what the
+  held trig plays. It goes through the held steps as the OS does (`0x4006be48`: bit n of the 64-bit word UIStates
+  +348 : +352, for n below `0x40016402`'s count) and stops at the first with a lock of the turned knob or a sound
+  lock. The lock comes from the knob view's entry +96 (`0x4001d784`), which reaches the track through entry +128
+  (`0x4001dff4`) and uses nothing else of the view; the sound lock from entry +108 (`0x4001e246`); a sound lock's
+  sound from `0x40009c4a(project + 116, i)`, a holder like a track's.
+- `smp_note_draw` calls the stock draw except while the knob draw has just drawn that view, so the waveform keeps its
+  105 columns; when the value goes, the held trig's note, velocity and length are back.
+- One-Shot's own build: 124 writes, the three vtable entries among them; played in the digiemu emulator and on a
+  Model:Cycles (2026-10-30). Not yet pinned in model27.
+
 ### 7.2 MACRO (Modded-Cycles 1.56)
 
 ```json
@@ -999,20 +1034,21 @@ every point a machine may use today:
 - a shortcut (RETRIG + COLOR = Octave, −2 to +2);
 - two switches (RETRIG + PUNCH = Square, RETRIG + GATE = Tone open), since 0.5;
 - its main screen label and its knob view;
+- a mark over a held trig's note, velocity and length, since 0.7;
 - a tick that blinks the label's dot;
 - a browser hook that shows the name of a file opened on its track.
 
 It is never offered to users. Its manifest as model27's composer reads it, at
 [`tools/machines/refmachine2/manifest.json`](https://github.com/durchgemacht/model27/blob/main/tools/machines/refmachine2/manifest.json)
-after the switches (model27 notes/63 §18):
+after the note point (model27 notes/63 §22):
 
 ```json
 {
  "schema": "cycles-mod/0.1",
  "id": "refmachine2",
- "version": "0.1",
+ "version": "0.2",
  "name": "REF2 machine: model27's second reference machine, a triangle and noise through the stock chain",
- "description": "The template for a machine that uses everything the standard lets a machine use (notes/63). REF's contract with a triangle in place of REF's parabola (B4a); a shortcut, RETRIG + COLOR = Octave, -2 to +2, saved with the sound by the builder's shortcut layer (B4b); its own main screen label and knob view (B4c), and a tick that blinks the label's dot and a browser hook that shows the name of a file opened on its track (B4d), through the builder's dispatchers when SAMPLE takes the same points; two switches, RETRIG + PUNCH = Square and RETRIG + GATE = Tone open, flipped and saved in k 32 by the shortcut layer, read in the note's sound and shown left of the label (notes/63 §16). Never offered to users.",
+ "description": "The template for a machine that uses everything the standard lets a machine use (notes/63). REF's contract with a triangle in place of REF's parabola (B4a); a shortcut, RETRIG + COLOR = Octave, -2 to +2, saved with the sound by the builder's shortcut layer (B4b); its own main screen label and knob view (B4c), a mark over a held trig's note, velocity and length (notes/63 §22), and a tick that blinks the label's dot and a browser hook that shows the name of a file opened on its track (B4d), through the builder's dispatchers when SAMPLE takes the same points; two switches, RETRIG + PUNCH = Square and RETRIG + GATE = Tone open, flipped and saved in k 32 by the shortcut layer, read in the note's sound and shown left of the label (notes/63 §16). Never offered to users.",
  "license": "MIT",
  "credit": {"kind": "own", "who": "durchgemacht and Claude", "repo": "durchgemacht/model27"},
  "device": "Model:Cycles",
@@ -1030,7 +1066,7 @@ after the switches (model27 notes/63 §18):
    {"symbol": "ref2_machine_index", "kind": "machine_index"}
   ],
   "symbols": {"update": "ref2_update", "render": "ref2_render"},
-  "keep": ["ref2_main_draw", "ref2_knob_draw", "ref2_hook_tick", "ref2_hook_open"]
+  "keep": ["ref2_main_draw", "ref2_knob_draw", "ref2_hook_tick", "ref2_hook_open", "ref2_note_draw"]
  },
  "uses": [
   {"point": "machine", "name": "REF2", "image": 4, "decay_default": 64,
@@ -1050,16 +1086,18 @@ after the switches (model27 notes/63 §18):
    "why": "MainScreenView's draw method: the stock screen, then OCT and the Octave in its free band on a REF2 track"},
   {"point": "view.knob", "vtable": {"at": "0x4010053c", "stock_ptr": "0x4001e40a", "symbol": "ref2_knob_draw"},
    "why": "the knob view's draw method: the Octave as five boxes while RETRIG + COLOR turns it on a REF2 track"},
+  {"point": "view.note", "vtable": {"at": "0x40102578", "stock_ptr": "0x400299de", "symbol": "ref2_note_draw"},
+   "why": "NoteVelocityView's draw method: the held trig's note, velocity and length, then a 2 x 2 mark in the panel on a REF2 track"},
   {"point": "screen.tick", "hook": {"at": "0x400075f0", "stock": "4eb940076be4", "op": "jsr", "symbol": "ref2_hook_tick"},
    "why": "the screen's redraw, about 30 Hz: counts the ticks, and the label's dot blinks with them"},
   {"point": "browser.open", "hook": {"at": "0x400a6602", "stock": "4eb9400a3052", "op": "jsr", "symbol": "ref2_hook_open"},
    "why": "the browser reads the file it opens: on a REF2 track the label shows its name, then the stock open reads it"}
  ],
- "claims": {"sound_slots": [28, 32], "record_slots": [18, 28], "ram": [], "gestures": [{"combo": "RETRIG + COLOR", "situation": "params", "meaning": "Octave"}, {"combo": "RETRIG + PUNCH", "meaning": "Square"}, {"combo": "RETRIG + GATE", "meaning": "Tone open"}], "views": ["main", "knob"]},
+ "claims": {"sound_slots": [28, 32], "record_slots": [18, 28], "ram": [], "gestures": [{"combo": "RETRIG + COLOR", "situation": "params", "meaning": "Octave"}, {"combo": "RETRIG + PUNCH", "meaning": "Square"}, {"combo": "RETRIG + GATE", "meaning": "Tone open"}], "views": ["main", "knob", "note"]},
  "cost": {"emulation": {"status": "not measured"}, "device": {"status": "not measured"}},
  "stock_behaviour": {"changes": ["on its tracks, RETRIG held + PUNCH or GATE flips its switch instead of PUNCH or GATE, and their LEDs show its switches while RETRIG is held"], "fixes": [], "unchanged": ["other tracks and machines", "TRACK + PUNCH or GATE (Control All), with or without RETRIG"]},
  "compat": {"built_against": ["model27"], "requires": [], "conflicts_declared": []},
- "tests": {"emulation": {"tool": "tools/emu/test_compose.py, tools/emu/test_shortcuts.py and tools/emu/test_views.py (Unicorn, the OS's own code, notes/63 §10, §11.4, §12.4, §13.4, and the switches §18.4)", "date": "2026-10-26", "build": "alone, as machine 6 or 7 next to sampler, and as machine 8 of sampler, refmachine, refmachine2"}, "hardware": {"date": "2026-10-26", "by": "maintainer", "build": "sampler + refmachine2 from tools/compose.py (notes/63 §20.1, .syx 8d75e346, MAIN OS 6ee148f3): \"alles wie erwartet\", the list of notes/63 §20.2 (§20.4); REF2 alone and its browser hook not run"}, "status": "experimental"}
+ "tests": {"emulation": {"tool": "tools/emu/test_compose.py, tools/emu/test_shortcuts.py and tools/emu/test_views.py (Unicorn, the OS's own code, notes/63 §10, §11.4, §12.4, §13.4, and the switches §18.4)", "date": "2026-10-30, all three with REF2 0.2 and the dispatchers 0.3 (its mark over a held trig, notes/63 §22)", "build": "alone, as machine 6 or 7 next to sampler, and as machine 8 of sampler, refmachine, refmachine2"}, "hardware": {"date": "2026-10-26", "by": "maintainer", "build": "sampler + refmachine2 from tools/compose.py (notes/63 §20.1, .syx 8d75e346, MAIN OS 6ee148f3): \"alles wie erwartet\", the list of notes/63 §20.2 (§20.4); REF2 alone and its browser hook not run"}, "status": "experimental"}
 }
 ```
 
@@ -1071,20 +1109,23 @@ after the switches (model27 notes/63 §18):
   `S`, `O` or `SO` left of the label.
 - **The machine number** is the patch point `ref2_machine_index`, read as `(int32_t)(long)ref2_machine_index` and
   compared with the sound's byte `+38`.
-- **The two draws** take `(view, bitmap)`. On a track of their own machine they draw (the main screen: the stock
-  draw first, then the label). Otherwise they call the stock draw.
+- **The three draws** take `(view, bitmap)`. On a track of their own machine they draw (the main screen: the stock
+  draw first, then the label; the held trig's view: the stock draw first, then a 2 × 2 mark turned over at x 58–59,
+  rows 3–4, with a trig held). Otherwise they call the stock draw.
 - **The tick** takes `(view)` and returns `0x40076be4(view)`.
 - **The browser hook** is assembly. It keeps a0, a2 and d2–d7, notes the file's name on a REF2 track, and ends in a
   jump to the stock read `0x400a3052`.
 
 **What the composer computes from it** (model27, 2026-10-22; the switches 2026-10-26):
-- **Alone**, as machine 6: 126 writes, 3 524 bytes of code and tables, 244 bytes of variables, 10 048 bytes added to
-  the image. The shortcut layer goes in with its two switch hooks, the dispatchers do not: REF2's four points are
-  written directly.
+- **Alone**, as machine 6: 127 writes, 3 700 bytes of code and tables, 244 bytes of variables, 10 224 bytes added to
+  the image (0.2, 2026-10-30). The shortcut layer goes in with its two switch hooks, the dispatchers do not: REF2's
+  five points are written directly.
 - **With SAMPLE**, as machine 7: the shortcut layer with SAMPLE's three record wrappers chained behind it, and the
-  dispatchers for the four shared points, with both machines' methods in the tables.
+  dispatchers for the shared points, with both machines' methods in the tables: four with SAMPLE 0.11, five once
+  SAMPLE 0.12 is pinned, `view.note` REF2's own entry until then.
 - **Proven in emulation** on the OS's own code: the knob in 1 792 to 2 240 cases per build, the value's range, clamp,
-  display, save and load, a machine change, the octave, the views, the tick and the browser. The switches (model27
+  display, save and load, a machine change, the octave, the views, the tick and the browser; the mark over a held
+  trig since 2026-10-30, `view.note`'s dispatcher not yet (model27 notes/63 §22). The switches (model27
   notes/63 §18): the press against the stock OS in up to 2 400 cases, the LEDs in up to 640, slot 18 and k 32 in the
   record, the four sounds and a switch acting from the block it flips at.
 - **On a Model:Cycles** (2026-10-26, model27 notes/63 §20.4): the build SAMPLE + REF2, as expected: the Octave and
@@ -1309,7 +1350,8 @@ Pre-linked variants per slot are not needed.
 6. **Dispatcher tables** for `sound.record`, `screen.tick`, `view.*` and `menu.track_setup`, one at a time, each
    proven in emulation like a mod. *Done in model27* for `sound.record`, `view.main`, `view.knob`, `screen.tick` and
    `browser.open` (§3.3), proven in emulation with SAMPLE and REF2, and played on a Model:Cycles with both on
-   2026-10-26, REF2's browser hook aside; `menu.track_setup` not started.
+   2026-10-26, REF2's browser hook aside. `view.note` built (0.7, the dispatchers 0.3, REF2 0.2), REF2's draw of it
+   proven in emulation, its dispatcher not yet; `menu.track_setup` not started.
 7. **The flasher** builds cards from manifests and fills tables, with the relocator of §8. *Done in model27* for the
    tables (`composer.js`); the cards still come from the tweaks (`gen_flasher_tweaks.py`).
 8. **Effects as packages**: the mixer's delay and reverb as slots, their lines, their cost, a first effect from
@@ -1360,6 +1402,14 @@ to §17):
 - each slot has a line of its own, shared by its effects; the stock delay's line stays its DMA's (§3.5);
 - an effect's cost is counted per block and the builder's rule goes per slot; no guard at run time for now (§6);
 - effect ids are fixed, 1–239 for effects users get, 240–255 for references (§5.8).
+
+Decided in 0.7
+([model27 notes/63](https://github.com/durchgemacht/model27/blob/main/notes/63-level-b4-shortcuts-dispatchers.md)
+§22):
+- a machine's knob draw may draw with a trig held, for its own parameter, and shows the held trig's value as the OS
+  finds it (§3.1);
+- the draw of a held trig's note, velocity and length is a point by machine, `view.note`, so that a machine may leave
+  the screen to its own view while it shows a value of its own; the OS's draw stays everyone else's (§3.1, §3.3).
 
 ## 11. Sources
 
@@ -1414,3 +1464,13 @@ Read for this draft, all local copies:
     loader `0x4005b3b4`, saver `0x4005ba0a` and initializer `0x40061526`, the encoder handler `0x4001f4f0`, the
     descriptors 37 to 40 and their interface objects;
   - notes 68, 42 §4 and §5, 23.
+- For 0.7, model27 after notes/63 §22 (2026-10-30):
+  - `tools/machines/dispatch/` 0.3 (`dispatch.c`, `part.json`), `tools/machines/refmachine2/` 0.2 (`ref2_view.c`,
+    `manifest.json`), `tools/claims.py`, `tools/emu/test_views.py`;
+  - Cycles One-Shot 0.12 (`cycles-sampler/`): `machine/view.c`, `machine/os.h`, `machine/build.py`, `TECHNICAL.md`
+    §9;
+  - the OS 1.13: NoteVelocityView's vtable `0x40102568` and draw `0x400299de`; the knob view's draw `0x4001e40a` and
+    its entries +80 (`0x4001e160`), +96 (`0x4001d784`), +108 (`0x4001e246`), +128 (`0x4001dff4`) and +144
+    (`0x4001d818`); the held steps' walk `0x4006be48` with its callback `0x4001d66e`, `0x40016402` and `0x400c592c`;
+    the pool's holders `0x40009c4a`;
+  - model27 notes 63 §22.

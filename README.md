@@ -1,6 +1,6 @@
 # Cycles Mod Standard
 
-**Draft 0.6, public.** This page says what the idea is, first in plain words, then with a bit more technical
+**Draft 0.7.** This page says what the idea is, first in plain words, then with a bit more technical
 detail. The full text with every address, rule and source is in [STANDARD.md](STANDARD.md). Much of it is built:
 [model27](https://github.com/durchgemacht/model27) composes added machines from manifests, tested on a Model:Cycles,
 and lets them share the screen, the browser and saved sounds and use a fixed list of shortcuts and switches, proven
@@ -147,7 +147,8 @@ detours such a place itself; it registers a callback in its manifest and the bui
 | `sound.record` | saving and loading a sound | **chain**: one machine's "around" wrapper behind model27's shortcut layer | Model-TG, track filter, One-Shot (outside model27: three separate hooks, declared as conflicts) |
 | `browser.open` | the PRESET browser opens a file | **by machine**: the machine of the track it loads into | One-Shot (sample files on a SAMPLE track), REF2 |
 | `screen.tick` | the screen's redraw, about 30 times a second | **append**: every machine | One-Shot (loads samples in the background), REF2 |
-| `view.main`, `view.knob` | the main screen and the knob value screen | **by machine**: the selected track's machine draws, or the stock screen | One-Shot, REF2 |
+| `view.main`, `view.knob` | the main screen and the knob value screen, the knob value screen also with a trig held (since 0.7) | **by machine**: the selected track's machine draws, or the stock screen | One-Shot, REF2 |
+| `view.note` | a held trig's note, velocity and length over the left half of the screen (since 0.7) | **by machine**, as the other views; a machine may keep the whole screen for its own view of a held trig's value | One-Shot (0.12), REF2 |
 | `shortcut` | RETRIG held + COLOR, SHAPE, SWEEP or CONTOUR on a machine's tracks, and RETRIG held + a press on PUNCH or GATE (since 0.5) | **by machine**, from a fixed list: up to four extra values and two on/off switches per machine, saved with the sound; while RETRIG is held, PUNCH's and GATE's LEDs show the switches | REF2 (Octave; Square, Tone open) |
 | `fx.delay`, `fx.reverb` | the mixer's delay and reverb | **table by id**: the stock effect, then the build's effects; the playing pattern chooses one, with TRACK held + Delay Time or Reverb Size; each slot has a line of its own for its effects | Digital Delay; model27's two reference effects |
 | `menu.track_setup` | the FUNC + TRACK menu | **append** | nobody yet (read for One-Shot's loop/reverse study) |
@@ -297,8 +298,8 @@ The path, in order: write the contract and the shared header; port One-Shot onto
 the first proof (done in model27); generate manifests for the existing mods from their generators (three written by
 hand so far, and in model27 the other mods' claims in one declared file); let the registry tool read them (done in
 model27); compute conflicts and compare with the hand lists (done in model27); add the callback tables one point at a
-time, each proven in emulation like a mod (done in model27 for the five points SAMPLE uses); last, the flasher (done
-in model27).
+time, each proven in emulation like a mod (done in model27 for the five points SAMPLE used until One-Shot 0.11; the
+sixth, `view.note`, is built and SAMPLE's draw of it played on a Model:Cycles, its dispatcher's proof to come); last, the flasher (done in model27).
 
 Open decisions: the cost threshold for machines; the unread place after the voice loop; the stock MIDI map; who
 assigns registry numbers; for effects, more parameters, more slots, a MIDI choice and a guard at run time. Decided
@@ -309,7 +310,9 @@ situations and scopes; taking a stock combination must say what it replaces; two
 warning; the web flasher explains a computed clash. Decided in 0.5: two switches join the shortcuts, RETRIG + PUNCH
 and RETRIG + GATE; their LEDs show them while RETRIG is held, and the rest of how a switch shows is the machine's.
 Decided in 0.6: the delay and the reverb are two slots, one effect each at a time; the pattern keeps the choice; each
-slot has its own line; effect ids are fixed; an effect's cost is checked per slot.
+slot has its own line; effect ids are fixed; an effect's cost is checked per slot. Decided in 0.7: a machine's knob
+view may draw with a trig held, and the held trig's note, velocity and length are a view point of their own, so that
+a machine's view of a held trig's value can keep the whole screen.
 
 ## Read more
 

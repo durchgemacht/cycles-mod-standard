@@ -1,6 +1,6 @@
 # Applying the standard to your mod — a checklist
 
-**Status:** draft 0.6, 2026-10-27, companion to [STANDARD.md](STANDARD.md). Written for the author of an existing
+**Status:** draft 0.7, 2026-10-30, companion to [STANDARD.md](STANDARD.md). Written for the author of an existing
 Model:Cycles mod and the AI assistant they work with. Sections 1 to 11 inventory a mod; section 12 ports a machine to
 model27's builder, step by step, with REF2 as the template; section 13 ports an effect, with Digital Delay as the
 template.
@@ -166,7 +166,7 @@ Take the inventory of section 2 and, for each item, find the row of STANDARD.md 
 | a hook on the sound's slot copy `0x4005aa34` | `sound.copy` | chain |
 | a hook on the browser's file read `0x400a6602` | `browser.open` | by machine (the track it loads into) |
 | a hook on the redraw `0x400075f0` | `screen.tick` | append (every machine) |
-| a rewritten draw entry `0x400ffe30` or `0x4010053c` | `view.main`, `view.knob` | by machine (the selected track) |
+| a rewritten draw entry `0x400ffe30`, `0x4010053c` or `0x40102578` | `view.main`, `view.knob`, `view.note` | by machine (the selected track) |
 | RETRIG held + COLOR, SHAPE, SWEEP or CONTOUR on your machine's tracks | `shortcut` | by machine, from the builder's list |
 | RETRIG held + a press on PUNCH or GATE on your machine's tracks (a switch) | `shortcut` | by machine, from the builder's list |
 | a hook on the mixer's call of the delay `0x4005699c` or of the reverb `0x40056a2c` | `fx.delay`, `fx.reverb` | table by id: the effect slots (section 13) |
@@ -453,7 +453,8 @@ work otherwise.
 | Point | Your method | It must |
 |---|---|---|
 | `view.main` | `void main_draw(void *view, void *bitmap)` at `0x400ffe30` | draw only on the selected track of your machine and without a value window open (`0x4006b704(0x400cf9a8())` is 0); otherwise call the stock `0x4001b22a(view, bitmap)` |
-| `view.knob` | `void knob_draw(void *view, void *bitmap)` at `0x4010053c` | draw only for your machine's parameter (`*(int32_t *)(view + 0x230)`, its descriptor), a value window open and no trig held (`0x4006b736(0x400cf9a8())` is 0); otherwise call the stock `0x4001e40a(view, bitmap)` |
+| `view.knob` | `void knob_draw(void *view, void *bitmap)` at `0x4010053c` | draw only for your machine's parameter (`*(int32_t *)(view + 0x230)`, its descriptor) and a value window open; otherwise call the stock `0x4001e40a(view, bitmap)`. With a trig held (`0x4006b736(0x400cf9a8())` is not 0) the window shows the held trig's value: draw it as the OS finds it (the first held step with a lock of your parameter or a sound lock, One-Shot's `find_held`), or leave it to the stock draw. Since draft 0.7 |
+| `view.note` | `void note_draw(void *view, void *bitmap)` at `0x40102578` | the stock `0x400299de(view, bitmap)` draws a held trig's note, velocity and length over columns 0–63, after the other two views, and nothing without a held trig; call it in every case you do not take. Leave it out (draw nothing) only while your own knob draw shows a value of yours for a held trig, as SAMPLE does, so that your view keeps the whole screen; or draw over it on your tracks, as REF2's mark does. Since draft 0.7 |
 | `screen.tick` | `uint32_t tick(void *view)`, `jsr` at `0x400075f0` | do its work quickly for every track, then return `0x40076be4(view)`; it may run from two tasks, so lock what you share; to redraw the main screen, call `0x40076082(main_view)` with the view your draw last got |
 | `browser.open` | an assembly hook, `jsr` at `0x400a6602` | keep a0 (&result), a2 (the browser's pointer) and d2–d7; take the file only on a track of your machine (the browser object's `+664`); otherwise end with `jmp 0x400a3052` |
 | `sound.record` | an "around" wrapper over the first 8 bytes of `0x4005afa0`, `0x4005b054`, `0x4005aecc` (One-Shot's `hooks.S`) | replay the 8 bytes, run the body, call your `after` function, keep `d0`, act only on sounds of your machine and only when the function returned 1. Only one machine may have one; use a shortcut where you can |

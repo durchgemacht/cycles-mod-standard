@@ -43,7 +43,8 @@ And then a fourth view (2026-10-30):
 SAMPLE uses both from Cycles One-Shot 0.12 on: while Start or Length turns with a trig held, its whole view shows the
 trig's locks. model27 has built the point (its dispatchers 0.3) and given REF2 a draw of it, proven in emulation on
 the OS's own code (2026-10-30); One-Shot's own image with SAMPLE 0.12 played in the digiemu emulator and on a
-Model:Cycles (2026-10-30). The dispatcher of `view.note`, which needs SAMPLE 0.12 in model27, is still to come (§9).
+Model:Cycles (2026-10-30). With SAMPLE 0.12 pinned in model27, `view.note`'s dispatcher is proven in emulation too
+(2026-10-30); the page's build of it on a device is still to come (§9).
 **Authors:** durchgemacht and Claude.
 **License:** MIT ([LICENSE](LICENSE)).
 **Scope:** mods for the Elektron Model:Cycles OS 1.13 that are built from the user's own official file with
@@ -920,7 +921,8 @@ draw that draws with a trig held.
 - `smp_note_draw` calls the stock draw except while the knob draw has just drawn that view, so the waveform keeps its
   105 columns; when the value goes, the held trig's note, velocity and length are back.
 - One-Shot's own build: 124 writes, the three vtable entries among them; played in the digiemu emulator and on a
-  Model:Cycles (2026-10-30). Not yet pinned in model27.
+  Model:Cycles (2026-10-30). Pinned in model27 on 2026-10-30 (its notes/60 §20): 127 writes alone, and next to REF2
+  `view.note` through the dispatcher.
 
 ### 7.2 MACRO (Modded-Cycles 1.56)
 
@@ -1121,11 +1123,11 @@ after the note point (model27 notes/63 §22):
   the image (0.2, 2026-10-30). The shortcut layer goes in with its two switch hooks, the dispatchers do not: REF2's
   five points are written directly.
 - **With SAMPLE**, as machine 7: the shortcut layer with SAMPLE's three record wrappers chained behind it, and the
-  dispatchers for the shared points, with both machines' methods in the tables: four with SAMPLE 0.11, five once
-  SAMPLE 0.12 is pinned, `view.note` REF2's own entry until then.
+  dispatchers for the shared points, with both machines' methods in the tables: four with SAMPLE 0.11, five with
+  SAMPLE 0.12, `view.note` among them.
 - **Proven in emulation** on the OS's own code: the knob in 1 792 to 2 240 cases per build, the value's range, clamp,
   display, save and load, a machine change, the octave, the views, the tick and the browser; the mark over a held
-  trig since 2026-10-30, `view.note`'s dispatcher not yet (model27 notes/63 §22). The switches (model27
+  trig and `view.note`'s dispatcher since 2026-10-30 (model27 notes/63 §22). The switches (model27
   notes/63 §18): the press against the stock OS in up to 2 400 cases, the LEDs in up to 640, slot 18 and k 32 in the
   record, the four sounds and a switch acting from the block it flips at.
 - **On a Model:Cycles** (2026-10-26, model27 notes/63 §20.4): the build SAMPLE + REF2, as expected: the Octave and
@@ -1350,8 +1352,9 @@ Pre-linked variants per slot are not needed.
 6. **Dispatcher tables** for `sound.record`, `screen.tick`, `view.*` and `menu.track_setup`, one at a time, each
    proven in emulation like a mod. *Done in model27* for `sound.record`, `view.main`, `view.knob`, `screen.tick` and
    `browser.open` (§3.3), proven in emulation with SAMPLE and REF2, and played on a Model:Cycles with both on
-   2026-10-26, REF2's browser hook aside. `view.note` built (0.7, the dispatchers 0.3, REF2 0.2), REF2's draw of it
-   proven in emulation, its dispatcher not yet; `menu.track_setup` not started.
+   2026-10-26, REF2's browser hook aside. `view.note` built (0.7, the dispatchers 0.3, REF2 0.2, SAMPLE 0.12), proven
+   in emulation with SAMPLE and REF2 (2026-10-30), not yet played on a device through its dispatcher;
+   `menu.track_setup` not started.
 7. **The flasher** builds cards from manifests and fills tables, with the relocator of §8. *Done in model27* for the
    tables (`composer.js`); the cards still come from the tweaks (`gen_flasher_tweaks.py`).
 8. **Effects as packages**: the mixer's delay and reverb as slots, their lines, their cost, a first effect from

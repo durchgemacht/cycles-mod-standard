@@ -299,7 +299,7 @@ the first proof (done in model27); generate manifests for the existing mods from
 hand so far, and in model27 the other mods' claims in one declared file); let the registry tool read them (done in
 model27); compute conflicts and compare with the hand lists (done in model27); add the callback tables one point at a
 time, each proven in emulation like a mod (done in model27 for the five points SAMPLE used until One-Shot 0.11; the
-sixth, `view.note`, is built and SAMPLE's draw of it played on a Model:Cycles, its dispatcher's proof to come); last, the flasher (done in model27).
+sixth, `view.note`, is built and proven in emulation, SAMPLE's draw of it played on a Model:Cycles); last, the flasher (done in model27).
 
 Open decisions: the cost threshold for machines; the unread place after the voice loop; the stock MIDI map; who
 assigns registry numbers; for effects, more parameters, more slots, a MIDI choice and a guard at run time. Decided

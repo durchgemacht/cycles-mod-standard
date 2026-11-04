@@ -1,6 +1,6 @@
-# Cycles Mod Standard — draft 0.7
+# Cycles Mod Standard — draft 0.8
 
-**Status:** draft 0.7, 2026-10-30. Draft 0.1 (2026-10-21) described a target only. Draft 0.2 described the
+**Status:** draft 0.8, 2026-11-04. Draft 0.1 (2026-10-21) described a target only. Draft 0.2 described the
 `machine` point of Level B and the manifest of Level C as [model27](https://github.com/durchgemacht/model27) built
 them: a composer that places committed objects and registers them through a runtime, with no toolchain at build
 time, tested on a Model:Cycles on 2026-10-22 (§8). Draft 0.3 added what model27 built next:
@@ -45,6 +45,16 @@ trig's locks. model27 has built the point (its dispatchers 0.3) and given REF2 a
 the OS's own code (2026-10-30); One-Shot's own image with SAMPLE 0.12 played in the digiemu emulator and on a
 Model:Cycles (2026-10-30). With SAMPLE 0.12 pinned in model27, `view.note`'s dispatcher is proven in emulation too
 (2026-10-30); the page's build of it on a device is still to come (§9).
+
+And then a knob's picture (2026-11-04):
+- an interface object's `+0x60`, the picture the knob view draws for a knob's value, next to its formatter at `+0x20`
+  (§2.5);
+- a claim of its own, `pictures`, in the formatters' shape; like a formatter it belongs to its object, whatever the
+  scopes (§4.4, §4.5).
+
+Cycles One-Shot 0.14 uses it: on a SAMPLE track Cutoff and Reso show the Model:Samples' own pictures, which the Cycles
+OS builds at boot without drawing them; One-Shot's own image played in the digiemu emulator and on a Model:Cycles
+(2026-11-04). It is not yet pinned in model27, and model27's `claims.py` does not read `pictures` yet (§9).
 **Authors:** durchgemacht and Claude.
 **License:** MIT ([LICENSE](LICENSE)).
 **Scope:** mods for the Elektron Model:Cycles OS 1.13 that are built from the user's own official file with
@@ -55,6 +65,12 @@ but not followed through in the OS, it says so. Addresses are virtual addresses 
 
 **Applying it to an existing mod:** [APPLYING.md](APPLYING.md) is the checklist for authors and their AI
 assistants. It produces an inventory, a manifest, the collisions and the deviations of a mod, not a rewrite.
+
+**Changes from 0.7:**
+- §2.5: an interface object's picture at `+0x60`, and how the knob view calls it;
+- §4.2, §4.4, §4.5: the claim `pictures`, and rule 2 for it;
+- §7.1: what One-Shot 0.14 adds;
+- §9 to §11: brought up to date.
 
 **Changes from 0.6:**
 - §3.1: the point `view.note`; `view.knob` may draw with a trig held;
@@ -260,6 +276,12 @@ Other facts of the audio side that machines use today:
   SNARE's objects through a detour of the accessor `0x4004df40` (notes/18). An object's `+0x20` is the formatter:
   `0x400456c8` prints 0–127, `0x400456ea` −64…+63, `0x40045bd6` OFF. A machine may replace the formatter of its own
   knobs (One-Shot does for Cutoff); it is a claim (section 3).
+- An object's `+0x60` is its picture, which the knob view draws in its light box for the knob's value: the view
+  (`0x4001d818`, from its draw) calls the parameter's vtable entry +68 (`0x4000a6b0`), which looks the object up again
+  and, while `+0x5c` is set, calls `picture(object + 0x54, bitmap, 32, 19, value)`. SNARE's SWEEP and CONTOUR have
+  `0x400466a2` and `0x400466f0`: each picks a frame by the value from a list of sprites the OS builds at boot
+  (`0x40072058`) and draws it centred there (`0x40071da4`). A machine may replace the picture of its own knobs
+  (One-Shot 0.14 does for Cutoff and Reso); it is a claim, like the formatter (section 4.5).
 
 ### 2.6 Rules for a core machine
 
@@ -478,7 +500,7 @@ yet.
 | `order` | declared | the package's place among chains (today's tweak `order`); section 5.6 |
 | `build` | declared | the object's recipe (`sources`, `include`, `cflags`, `defines`); `objects`: one relocatable ELF file, the `ld -r` of the sources, committed; `symbols`: `update` and `render` (a machine); `roots`: the entry points of an extension of a stock machine or of an effect (an effect's process first, then its reset and any formatter); `keep`: the other symbols the writes need (hooks, view methods); `patch_points`: `{symbol, kind}`, an undefined symbol whose address the builder sets (kinds `machine_index`, `descriptor_base`; `fx_line` for an effect's line, its only patch point) |
 | `uses` | declared | one object per extension point, with that point's own fields; a hook as `hook: {at, stock, op, symbol}` (`op` is `jsr` or `jmp`), a vtable entry as `vtable: {at, stock_ptr, symbol}`, each with `why`. The builder checks the stock bytes against the user's file and writes the hook, or the point's dispatcher when another machine of the build takes it too (§3.3). A shortcut is `{"point": "shortcut", "key": "RETRIG", "knob": "COLOR", "param": {"long", "short", "min", "max", "default": 0, "format"}}`: names in printable ASCII, the short one of 4 characters at most; integers with min ≤ 0 ≤ max within −128…127; `format`, optional, a kept symbol of the package written like the OS's formatters (`(object + 0x14, value, buffer)`), the integer one otherwise; the machine reads the value in k 28 to 31 (`params + 0x38 + 2 · i`, i the knob's place in the list). A switch is `{"point": "shortcut", "key": "RETRIG", "press": "PUNCH"}` (or `"GATE"`): no knob, no `param`, off is 0; the machine reads it as bit 8 (PUNCH) or bit 9 (GATE) of k 32 in the sound its note plays (§2.3) and shows it, if it wants, where and when it likes. An effect is `{"point": "fx.delay", "id": 1, "process": "digi_process", "reset": "digi_reset", "line": 1048576, "params": [{"long", "short", "format"}, {…}], "name", "short"}` (or `"fx.reverb"`): its id (§5.8); its process and optional reset, both in `build.roots`; `line`, optional, the bytes of the slot's line it needs, together with the patch point `fx_line`; `params`, the slot's two parameters as the effect names them, in the slot's order (delay: Time, Fdbk; reverb: Size, Tone), the long name of 15 characters at most and the short one of 5, `format` none (the slot's stock formatter), `"int"` (0–127) or reserved for a formatter of the package; `name`, at most 15 characters, shown as the parameters' group. An effect's `uses` holds that entry and `memory.ram` claims, nothing else: no hook, no vtable entry; the builder's part takes the OS's places (§3.5) |
-| `claims` | declared | `sound_slots`, `record_slots`, `saved`, `descriptors`, `formatters`, `plock_rows`, `midi`, `gestures`, `ram`, `views`, in the shapes of §4.5: a number or a string takes the holder's own scope (a package's machine); an object names another scope, a range, a situation, a meaning, or what a stock combination it takes did (`replaces`). Hooks are in `uses`; masks, payload and sizes are derived into the build's tweak and `REGISTRY.md`, not written in the manifest |
+| `claims` | declared | `sound_slots`, `record_slots`, `saved`, `descriptors`, `formatters`, `pictures`, `plock_rows`, `midi`, `gestures`, `ram`, `views`, in the shapes of §4.5: a number or a string takes the holder's own scope (a package's machine); an object names another scope, a range, a situation, a meaning, or what a stock combination it takes did (`replaces`). Hooks are in `uses`; masks, payload and sizes are derived into the build's tweak and `REGISTRY.md`, not written in the manifest |
 | `cost` | declared, measured | section 6 |
 | `stock_behaviour` | declared | `changes`: what a stock function or gesture no longer does on this package's tracks; `fixes`: stock bugs it corrects; `unchanged`: what was proven bit for bit |
 | `compat` | declared | `built_against` (Modded-Cycles commits the build was verified with), `requires` (packages it needs), `conflicts_declared` (reasons a tool cannot compute, with text) |
@@ -517,7 +539,7 @@ saved data, key combinations, MIDI numbers and views come from the claims (since
 Two packages conflict when the builder finds any of:
 
 1. the same hook address with different bytes (as `check_overlaps.py` today);
-2. the same exclusive point with a different meaning (gesture, descriptor, formatter of the same knob);
+2. the same exclusive point with a different meaning (gesture, descriptor, formatter or picture of the same knob);
 3. the same number in the registry (machine id, sound slot, record slot, CC/NRPN);
 4. overlapping memory (masks, payload, `memory.ram`);
 5. more machines than the layout holds, or a cost sum above the threshold (a warning, not a refusal);
@@ -542,6 +564,10 @@ together. What building them settled:
 - a build whose own packages clash is refused; a package's own tweak is not compared with a build that contains it;
 - two drawings of one view in scopes that meet are a warning, not a conflict.
 
+Draft 0.8 adds a knob's picture to rule 2 (§4.5): it belongs to its interface object as the formatter does, since an
+object has one picture pointer, and SAMPLE's Cutoff and Reso share objects 53 and 54 with SNARE's SWEEP and CONTOUR.
+model27 does not compute it yet.
+
 SAMPLE alone conflicts with 268 tweaks of model27's folder, SAMPLE with the reference machine with 269. The claims now
 compute lfo-plus's clash with the shortcut layer, which was declared by hand (§5.2). Of the folder's 35 137 declared
 conflict pairs, the bytes show 35 118, the claims alone 2 (lfo-plus with the track filter and with REF2), both 9;
@@ -563,6 +589,8 @@ What a mod takes beyond its writes, in one shape, read and checked by model27's 
     or as `{"slots": [first, last], "scope": ...}`;
   - `saved` (`{"where", "bytes"}`), `formatters` (`{"knob", "object", "replaces"}`), `plock_rows` (true when the mod
     re-numbers the p-lock rows of k ≥ 23);
+  - `pictures` (`{"knob", "object", "replaces"}`, the object's `+0x60`, §2.5), since 0.8; model27's `claims.py`
+    does not read it yet;
   - `midi` (`{"cc": [...], "nrpn": ["MSB:LSB"]}`), `ram` (`[first, end)`), `views` (`main`, `knob`, `note`).
 - **A key combination** is written as the table of §5.4 writes it, the held keys then one action joined by `+`:
   `TRACK + TRIG 1-6`, `MACHINES + COLOR/SHAPE/SWEEP/CONTOUR`. `1-6` and `/` expand; the tools compare *atoms*, one
@@ -923,6 +951,25 @@ draw that draws with a trig held.
 - One-Shot's own build: 124 writes, the three vtable entries among them; played in the digiemu emulator and on a
   Model:Cycles (2026-10-30). Pinned in model27 on 2026-10-30 (its notes/60 §20): 127 writes alone, and next to REF2
   `view.note` through the dispatcher.
+
+**What One-Shot 0.14 adds** (2026-11-04, its `machine/view.c` and `machine/os.h`): Cutoff's and Reso's pictures.
+- The claims gain two pictures; nothing else in the manifest changes, since the tick puts them in at run time, as it
+  does the formatter:
+
+  ```json
+  "pictures": [{"knob": "Cutoff", "object": 53, "replaces": "0x400466a2", "scope": "all",
+                "why": "an interface object has one picture, and object 53 is also SNARE's SWEEP: smp_pic_cutoff falls back to SNARE's off SAMPLE's tracks and is put in only while SNARE's is there (machine/view.c)"},
+               {"knob": "Reso", "object": 54, "replaces": "0x400466f0", "scope": "all",
+                "why": "the same for object 54, SNARE's CONTOUR: smp_pic_reso"}]
+  ```
+- On a SAMPLE track `smp_pic_cutoff` and `smp_pic_reso` pick and draw the Model:Samples' own frames, the lists at
+  `0x40fe3638` (87 frames of 50 × 22) and `0x40fe35f4` (11), through the same two functions as SNARE's pictures; on
+  any other track, with no track, or while a list is still empty, they call SNARE's.
+- The frames are the OS's own: the Cycles and the Model:Samples OS build the same 2047 sprites in one constructor
+  (`0x400ab7b8` in the Cycles, from the table at `0x4019b430`), each keeping lists that only the other's code reads.
+  One-Shot carries no graphics for them.
+- One-Shot's own build: 124 writes, as in 0.12; played in the digiemu emulator and on a Model:Cycles (2026-11-04).
+  Not yet pinned in model27.
 
 ### 7.2 MACRO (Modded-Cycles 1.56)
 
@@ -1347,8 +1394,8 @@ Pre-linked variants per slot are not needed.
    (key combinations), §9 (descriptors, formatters, p-lock rows, MIDI) and §10 (views) come from the claims (§5).
 5. **Compute conflicts** and compare with the declared lists; keep only the declared ones that have a reason tools
    cannot see. *Done in model27* for rules 1 to 4 and 7 (§4.4), with a report of how each declared conflict is
-   shown. The declared conflicts of the folder's tweaks stay as Modded-Cycles wrote them; model27's own hand entry
-   (the shortcut layer's lfo-plus) is gone, computed now.
+   shown; rule 2 for a knob's picture (0.8) not yet. The declared conflicts of the folder's tweaks stay as
+   Modded-Cycles wrote them; model27's own hand entry (the shortcut layer's lfo-plus) is gone, computed now.
 6. **Dispatcher tables** for `sound.record`, `screen.tick`, `view.*` and `menu.track_setup`, one at a time, each
    proven in emulation like a mod. *Done in model27* for `sound.record`, `view.main`, `view.knob`, `screen.tick` and
    `browser.open` (§3.3), proven in emulation with SAMPLE and REF2, and played on a Model:Cycles with both on
@@ -1414,6 +1461,10 @@ Decided in 0.7
 - the draw of a held trig's note, velocity and length is a point by machine, `view.note`, so that a machine may leave
   the screen to its own view while it shows a value of its own; the OS's draw stays everyone else's (§3.1, §3.3).
 
+Decided in 0.8 (Cycles One-Shot 0.14, its TECHNICAL.md §9 and §16):
+- a knob's picture, the `+0x60` of its interface object, is a claim of its own in the formatters' shape, and like a
+  formatter it belongs to its object whatever the scopes (§2.5, §4.4, §4.5).
+
 ## 11. Sources
 
 Read for this draft, all local copies:
@@ -1477,3 +1528,11 @@ Read for this draft, all local copies:
     (`0x4001d818`); the held steps' walk `0x4006be48` with its callback `0x4001d66e`, `0x40016402` and `0x400c592c`;
     the pool's holders `0x40009c4a`;
   - model27 notes 63 §22.
+- For 0.8, Cycles One-Shot 0.14 (`cycles-sampler/`, commit `e7df584`, 2026-11-04):
+  - `machine/view.c`, `machine/os.h`, `machine/test_sampler.c`, `TECHNICAL.md` §9 and §16;
+  - the OS 1.13: the knob view's `0x4001d818` and its call at `0x4001d85e`, the parameters' entry +68 `0x4000a6b0`,
+    the frame picker `0x40072058` and `0x40071ff4`, the sprite draw `0x40071da4`, the objects' constructor
+    `0x400def5c` (its writes at `0x400e0414` and `0x400e04a2`), the sprite constructor `0x400ab7b8` and the table at
+    `0x4019b430`;
+  - the Model:Samples OS 1.13: the same sprite constructor at `0x400a73ec`, its knob view's call at `0x4001efe0`, and
+    the code that reads the lists (`0x400477c0`, `0x4004780e`, `0x40047d9c`, `0x40047dea`).

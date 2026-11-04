@@ -1,6 +1,6 @@
 # Cycles Mod Standard
 
-**Draft 0.7.** This page says what the idea is, first in plain words, then with a bit more technical
+**Draft 0.8.** This page says what the idea is, first in plain words, then with a bit more technical
 detail. The full text with every address, rule and source is in [STANDARD.md](STANDARD.md). Much of it is built:
 [model27](https://github.com/durchgemacht/model27) composes added machines from manifests, tested on a Model:Cycles,
 and lets them share the screen, the browser and saved sounds and use a fixed list of shortcuts and switches, proven
@@ -203,11 +203,12 @@ filter follow there in the older shape.
 ## How "works with" gets computed
 
 Two mods clash when any of these is true: the same hook address with different bytes; the same exclusive point with
-a different meaning (a gesture, a formatter); the same number in the registry; overlapping memory; more machines than
+a different meaning (a gesture, a formatter, a knob's picture); the same number in the registry; overlapping memory; more machines than
 the tables hold; the same order at the same chain point; or a declared conflict with a written reason, for the cases
 tools cannot see. Everything else is compatible until a test proves otherwise.
 
-model27's tools compute all of these but the cost, for machines and tweaks alike:
+model27's tools compute all of these but the cost and a knob's picture (new in draft 0.8), for machines and
+tweaks alike:
 - each mod declares its claims;
 - the composer, in Python and in the browser, adds the clashes to a build's conflicts;
 - the overlap check refuses two mods that can be ticked together and clash.
@@ -312,7 +313,8 @@ and RETRIG + GATE; their LEDs show them while RETRIG is held, and the rest of ho
 Decided in 0.6: the delay and the reverb are two slots, one effect each at a time; the pattern keeps the choice; each
 slot has its own line; effect ids are fixed; an effect's cost is checked per slot. Decided in 0.7: a machine's knob
 view may draw with a trig held, and the held trig's note, velocity and length are a view point of their own, so that
-a machine's view of a held trig's value can keep the whole screen.
+a machine's view of a held trig's value can keep the whole screen. Decided in 0.8: the picture a knob shows for its
+value is a claim of its own, like its formatter.
 
 ## Read more
 

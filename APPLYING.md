@@ -1,6 +1,6 @@
 # Applying the standard to your mod — a checklist
 
-**Status:** draft 0.7, 2026-10-30, companion to [STANDARD.md](STANDARD.md). Written for the author of an existing
+**Status:** draft 0.8, 2026-11-04, companion to [STANDARD.md](STANDARD.md). Written for the author of an existing
 Model:Cycles mod and the AI assistant they work with. Sections 1 to 11 inventory a mod; section 12 ports a machine to
 model27's builder, step by step, with REF2 as the template; section 13 ports an effect, with Digital Delay as the
 template.
@@ -115,7 +115,8 @@ One-Shot's sample pool, `0x43800000`–`0x46700000` since 0.7, is the example of
 ### 2.6 Descriptors and formatters
 
 Which parameter descriptors the mod adds or re-uses (the OS's 1 to 4, or 76 + 5·n for an added machine), and
-whether it replaces a knob's formatter (the `+0x20` of a parameter object, STANDARD.md §2.5).
+whether it replaces a knob's formatter (the `+0x20` of a parameter object, STANDARD.md §2.5) or its picture
+(the `+0x60`, the knob view's drawing of the value, since draft 0.8).
 
 ### 2.7 Gestures, menus and views
 
@@ -257,7 +258,7 @@ filled by hand from sections 2 to 6, so that nobody mistakes it for tool output.
   ],
   "claims": {
     "ram": [],
-    "sound_slots": [], "record_slots": [], "saved": [], "descriptors": [], "formatters": [], "plock_rows": false,
+    "sound_slots": [], "record_slots": [], "saved": [], "descriptors": [], "formatters": [], "pictures": [], "plock_rows": false,
     "gestures": [{"combo": "<held keys> + <action>", "situation": "<any | params | grid | keys | page:<name> | menu:<name>>",
                   "meaning": "<what it does>", "replaces": "<only when it takes a stock combination: what it did>"}],
     "views": [], "midi": {"cc": [], "nrpn": []}

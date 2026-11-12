@@ -1,6 +1,6 @@
-# Cycles Mod Standard — draft 0.8
+# Cycles Mod Standard — draft 0.9
 
-**Status:** draft 0.8, 2026-11-04. Draft 0.1 (2026-10-21) described a target only. Draft 0.2 described the
+**Status:** draft 0.9, 2026-11-12. Draft 0.1 (2026-10-21) described a target only. Draft 0.2 described the
 `machine` point of Level B and the manifest of Level C as [model27](https://github.com/durchgemacht/model27) built
 them: a composer that places committed objects and registers them through a runtime, with no toolchain at build
 time, tested on a Model:Cycles on 2026-10-22 (§8). Draft 0.3 added what model27 built next:
@@ -55,6 +55,19 @@ And then a knob's picture (2026-11-04):
 Cycles One-Shot 0.14 uses it: on a SAMPLE track Cutoff and Reso show the Model:Samples' own pictures, which the Cycles
 OS builds at boot without drawing them; One-Shot's own image played in the digiemu emulator and on a Model:Cycles
 (2026-11-04). It is not yet pinned in model27, and model27's `claims.py` does not read `pictures` yet (§9).
+
+And then one thing less (2026-11-12):
+- the four values a machine could give its tracks on a held key + COLOR, SHAPE, SWEEP or CONTOUR, in k 28–31 and the
+  OS's descriptors 1–4, are withdrawn from the `shortcut` point. model27's track effects (its filter slot, notes/72
+  and 73) give every track the same four knobs under RETRIG, as real parameters in the same k and descriptors, so a
+  build had either a machine with values or track effects, never both. The standard chooses the track effects: a
+  machine has the four stock knobs, and the switches (§3.1, §10);
+- the two switches stay, and the standard now names them as model27 has built them since its key map of 2026-10-31:
+  MACHINES + PUNCH and MACHINES + GATE, MACHINES being the key of the track's machine (RETRIG up to the layer's 0.2).
+  SAMPLE's Loop and Reverse and REF2's Square and Tone open are on them.
+
+model27 has not followed yet: its shortcut layer still carries the values for its reference machines REF2 and REFC,
+and its composer still accepts them (§9, step 9).
 **Authors:** durchgemacht and Claude.
 **License:** MIT ([LICENSE](LICENSE)).
 **Scope:** mods for the Elektron Model:Cycles OS 1.13 that are built from the user's own official file with
@@ -65,6 +78,15 @@ but not followed through in the OS, it says so. Addresses are virtual addresses 
 
 **Applying it to an existing mod:** [APPLYING.md](APPLYING.md) is the checklist for authors and their AI
 assistants. It produces an inventory, a manifest, the collisions and the deviations of a mod, not a rewrite.
+
+**Changes from 0.8:**
+- §3.1: the `shortcut` point keeps the two switches only, MACHINES + PUNCH and MACHINES + GATE; the `gesture`,
+  `param.sound` and `param.descriptor` rows;
+- §3.3: the shortcut layer without the values;
+- §4.2: the `shortcut` entry is a switch;
+- §5.2 to §5.4: the values' rows gone, the switches under MACHINES;
+- §7.4: REF2's manifest as model27's file reads today (MACHINES), with its Octave marked as withdrawn;
+- §9: step 9, what model27 still has to do; §10: decided in 0.9.
 
 **Changes from 0.7:**
 - §2.5: an interface object's picture at `+0x60`, and how the knob view calls it;
@@ -340,7 +362,7 @@ and checked byte for byte by `check_overlaps.py`, as today.
 | `track.post_voice` | after the voice loop (`0x4005981e`), before the velocity gain (`0x4005982a`) | **chain** | candidate: no mod uses it; contract to be read | — |
 | `fx.delay` | the mixer's call of the delay: `0x4005699c` (`jsr 0x40057488(out 0x8000ba90, in 0x8000b990, P + 428)`, after the delay line's read DMA has finished); the stock delay's line and DMA (`0x42400000`–`0x42800000`, `0x400573fa`, `0x4005802e`) stay the stock delay's | **table by id**: entry 0 the stock delay, then the build's effects by id; the playing pattern chooses one, which runs every block in place of the stock call (§3.5) | 7 effects per slot; one plays at a time; a line of at most 4 MiB for the slot's effects to share | Digital Delay (id 1), REFD (254) |
 | `fx.reverb` | the mixer's call of the reverb: `0x40056a2c` (`jsr 0x400579c4(out 0x8000bb90, in 0x8000b990, P + 432)`); the reverb's lines and DMA (`0x42340000`–`0x423d8000`, `0x40057942`) stay the stock reverb's | **table by id**, as `fx.delay` | as `fx.delay` | REFR (255) |
-| `sound.record` | the three sound record functions: save v2 `0x4005afa0`, save v1 `0x4005b054`, load `0x4005aecc` | **chain**, as built in model27: the builder's shortcut layer takes the functions' first 8 bytes (`lea -12(sp),sp ; movem.l a2-a4,(sp)`) and runs one package's wrapper as the next of its chain (One-Shot's "around" form: a copy of the arguments, the 8 bytes replayed, the stock body, then the package's `after` function, `d0` kept), then copies k 28–31 into record slots 28–31 or back; without a shortcut in the build, the package writes its own wrapper | one wrapper per function behind the layer; the functions return 0 when they did nothing (a null pointer; for the load also a record of another version than 2, left untouched), and a wrapper copies its slots only when the function returned 1 | Model-TG, track-filter, One-Shot, model27's shortcut layer |
+| `sound.record` | the three sound record functions: save v2 `0x4005afa0`, save v1 `0x4005b054`, load `0x4005aecc` | **chain**, as built in model27: the builder's shortcut layer takes the functions' first 8 bytes (`lea -12(sp),sp ; movem.l a2-a4,(sp)`) and runs one package's wrapper as the next of its chain (One-Shot's "around" form: a copy of the arguments, the 8 bytes replayed, the stock body, then the package's `after` function, `d0` kept), then copies the layer's slots into their record slots or back (k 32 into slot 18, §5.3; and k 28–31 into slots 28–31 while model27 still builds the values, §10); without a switch in the build, the package writes its own wrapper | one wrapper per function behind the layer; the functions return 0 when they did nothing (a null pointer; for the load also a record of another version than 2, left untouched), and a wrapper copies its slots only when the function returned 1 | Model-TG, track-filter, One-Shot, model27's shortcut layer |
 | `param.tables` | at boot the OS builds its parameter tables (k → descriptor per machine, CC, LFO) from the descriptors: `0x4005a274`, called once from `0x4004486c`; the track-filter's `tf_boot` hooks that call and copies its four descriptors into the active table (notes/47 §4, `tf_ui.S`) | **append** at boot | the active table is the one the build moved (the Syntakt engines move it into their payload); a package finds it where the build says | track-filter |
 | `sound.copy` | the sound's copy of its parameters by record slot (`0x4001461c`, slot 17 of `Sound`'s vtable), whose bound k ≤ 22 at `0x4005aa34`/`0x4005aa54` drops everything above (notes/47 §4.3) | **chain** | contract to be read from notes/47 §4 | track-filter |
 | `browser.open` | the PRESET browser reads the opened file: `0x400a6602` (`jsr 0x400a3052`) | **by machine**, as built in model27: the hook of the machine of the track the browser loads into (the browser object's `+664`), otherwise the stock read; a machine's hook takes a0 = &result, `4(sp)` = &handle, a2 = the browser's pointer and the caller's d2–d7 (d4: the entry's index), and ends in the stock read unless it takes the file | one hook per machine | One-Shot, REF2 (sample-preview, with Model-TG, plays files from the same browser) |
@@ -348,10 +370,10 @@ and checked byte for byte by `check_overlaps.py`, as today.
 | `view.main`, `view.knob` | entry `+16` of MainScreenView's vtable (`0x400ffe30`, stock `0x4001b22a`) and of the knob view's (`0x4010053c`, stock `0x4001e40a`): the draw method | **by machine**, as built in model27: the draw of the selected track's machine, otherwise the stock draw; each draw still checks the track itself and calls the stock draw in every case it does not take, so that it works as the point's only taker too. Since 0.7 a knob draw may draw with a trig held, for its own parameter: the knob view then shows the held trig's value, and a machine finds it as the OS does (the first held step with a lock of the parameter or a sound lock: entries +96, +108 and +80 of the knob view's vtable, §7.1) | one draw per machine and view; level-pan-values draws on the main screen through other hooks (`0x400081f2`, `0x4001aa4e`) and is not a byte conflict, but a functional one this point would make visible | One-Shot, REF2 |
 | `view.note` | entry `+16` of NoteVelocityView's vtable (`0x40102578`, stock `0x400299de`, the only reference to it): the draw of a held trig's note, velocity and length over the left half (columns 0–63), which does nothing without a held trig (`0x4006b736`) and is drawn after the main screen and the knob view | **by machine**, as `view.main` | one draw per machine; a draw that leaves the screen as it is lets the main screen's or the knob view's drawing stand on the left half too | One-Shot (from 0.12), REF2 (from 0.2) |
 | `menu.track_setup` | FUNC + TRACK; TrackMenuView is rebuilt at every opening by its one caller `0x4001c510` (`jsr 0x4003e020`); entries are 84-byte MenuItems (`0x400734b0`, vtable `0x40103470`) with four `std::function` callbacks, appended with `0x400732d6(menu, item, 12)`; strings via `0x400f980c` | **append**, in `order`; a package gives label, value text, change callback and a scope (all tracks, or tracks of its machine) | the MenuItem ABI is the risk; the shared header wraps it once | — (read for One-Shot's loop/reverse, not built) |
-| `shortcut` | on a track of the machine that declares it, RETRIG held + COLOR, SHAPE, SWEEP or CONTOUR (a value): the knob lookup's vtable entry `0x401005a8` (stock `0x4001e814`); RETRIG held + a press on PUNCH or GATE (a switch): the function both presses call, `0x4001ac4a` (its first 6 bytes; its only callers are PUNCH's and GATE's cases of MainScreenView's key handler, `0x4001c2d2` and `0x4001caa2`), and MainScreenView's LED method at `0x4001cc86` (6 bytes, LED 19 PUNCH, LED 20 GATE) | **by machine**: one shortcut per knob or key and machine, from the builder's fixed list (model27: the four knobs, and PUNCH and GATE since 0.5). The builder's shortcut layer shows a value through the OS's unused descriptors 1–4 and saves it in k 28–31 and record slots 28–31; it flips a switch in k 32 (bit 8 PUNCH, bit 9 GATE) instead of PUNCH or GATE, saves it in record slot 18 (§5.2, §5.3), and lets PUNCH's and GATE's LEDs show the switches while RETRIG is held. Everything else about a switch, whether and where the screen shows it, is the machine's | four values and two switches per machine. A value never with FUNC (fine adjust), TRACK (Control All), LFO (its destination) or a held trig (p-locks); a switch never with TRACK (Control All stays), and a held trig changes nothing. No p-lock and no LFO destination; 0 is every value's and switch's default (a new sound and an old one read 0) | REF2 (Octave; Square, Tone open) |
-| `gesture` | key combinations and their meaning | **exclusive** per combination, situation and scope; no dispatcher. As model27 computes it: a combination's atoms, one set of held keys and one action each, clash in situations and scopes that meet, with another meaning (§4.5) | — | MACHINES held + COLOR/SHAPE/SWEEP/CONTOUR (track-filter), MACHINES held + DECAY/SWEEP/CONTOUR (Model-TG's Attack, Filter, Resonance), FUNC + PITCH on MACRO tracks (lo-fi), TRACK + TRIG 1–6 (control-all-config), TRACK held + FUNC (latching-mute), a TRIG held + PAGE (trig-preview), RETRIG held + notes (arp), TRIG 1–16 in Keys mode (chord-keys), LFO on the LFO page (lfo-plus), RETRIG + knob and RETRIG + PUNCH/GATE (the `shortcut` point), TRACK held + Delay Time / Reverb Size (the effect slots, §3.5); the stock combinations of §4.5 |
+| `shortcut` | on a track of the machine that declares it, MACHINES held + a press on PUNCH or GATE (a switch): the function both presses call, `0x4001ac4a` (its first 6 bytes; its only callers are PUNCH's and GATE's cases of MainScreenView's key handler, `0x4001c2d2` and `0x4001caa2`), and MainScreenView's LED method at `0x4001cc86` (6 bytes, LED 19 PUNCH, LED 20 GATE). On those tracks MACHINES opens the MACHINES list on its release, and only when no switch acted while it was held (model27's layer since 0.4). Up to draft 0.8 the point also had four values, a held key + COLOR, SHAPE, SWEEP or CONTOUR through the knob lookup's vtable entry `0x401005a8`: withdrawn in 0.9 (§10) | **by machine**: one switch per key and machine, from the builder's fixed list (model27: PUNCH and GATE, since 0.5). The builder's shortcut layer flips a switch in k 32 (bit 8 PUNCH, bit 9 GATE) instead of PUNCH or GATE, saves it in record slot 18 (§5.2, §5.3), and lets PUNCH's and GATE's LEDs show the switches while MACHINES is held. Everything else about a switch, whether and where the screen shows it, is the machine's | two switches per machine. A switch never with TRACK (Control All stays), and a held trig changes nothing. No LFO destination; 0 is every switch's default (a new sound and an old one read 0) | SAMPLE (Loop, Reverse, since One-Shot 0.11), REF2 (Square, Tone open) |
+| `gesture` | key combinations and their meaning | **exclusive** per combination, situation and scope; no dispatcher. As model27 computes it: a combination's atoms, one set of held keys and one action each, clash in situations and scopes that meet, with another meaning (§4.5) | — | MACHINES held + COLOR/SHAPE/SWEEP/CONTOUR (track-filter), MACHINES held + DECAY/SWEEP/CONTOUR (Model-TG's Attack, Filter, Resonance), FUNC + PITCH on MACRO tracks (lo-fi), TRACK + TRIG 1–6 (control-all-config), TRACK held + FUNC (latching-mute), a TRIG held + PAGE (trig-preview), RETRIG held + notes (arp), TRIG 1–16 in Keys mode (chord-keys), LFO on the LFO page (lfo-plus), MACHINES + PUNCH/GATE (the `shortcut` point), TRACK held + Delay Time / Reverb Size (the effect slots, §3.5); the stock combinations of §4.5 |
 | `param.sound` | the sound slots k 23–32 and the record slots | **registry** (section 5); computed from the claims in model27 (§4.4) | no k is free any more (notes/56 §3.6) | Model-TG, track-filter, lfo-plus, One-Shot, model27's shortcut layer |
-| `param.descriptor` | the OS's unused descriptors 1–4 ("Error"), which the track-filter turns into real parameters of every machine (p-locks, LFO, CC, NRPN) | **exclusive** | four | track-filter; model27's shortcut layer, machine-scoped (their machine stays −1, so no row, CC, NRPN or LFO list has them) |
+| `param.descriptor` | the OS's unused descriptors 1–4 ("Error"), which the track-filter turns into real parameters of every machine (p-locks, LFO, CC, NRPN) | **exclusive** | four | track-filter; up to draft 0.8 also model27's shortcut layer, machine-scoped, for a machine's values (withdrawn in 0.9, §10) |
 | `midi` | CC and NRPN numbers a package listens to | **registry** | — | track-filter (CC 74, 71; NRPN 1:20, 1:21) |
 | `memory.mask` | freed sprite masks (notes/52): 164 masks, 35 960 bytes; 113 free (18 152 bytes) at release 1.56 | **allocation** by `registry.py` and `sprites.redirect_write` | a mask is redirected in the same tweak that writes it | arp, chord-keys, lfo-plus, track-filter, trig-hold, … |
 | `memory.payload` | code copied at boot from the end of the image to RAM: `0x43000000` (alone) or `0x46700000` (with Model-TG), boot hook at `0x400004b2` (the BSS clear) through a stub in the cave `0x4016cae8` | **allocation**: the builder lays packages out one after the other and fills the copy list | the image must end below `0x40200000`; the stock image ends at `0x401aa140` | every added machine, One-Shot, the effect slots and their effects |
@@ -386,12 +408,12 @@ point: code assembled once, a parameter block the builder fills per build (§8).
 §11 to §13). Two *parts* of the builder are compiled once and committed: objects with roots and patch points like a
 package, no machine of their own. The composer adds a part to a build only when the build needs it:
 - **the shortcut layer** (`tools/machines/shortcuts/`, 0.2 since the switches), when a machine declares a
-  `shortcut`:
-  - it takes the knob lookup's vtable entry and the three sound record functions; when a machine declares a switch,
-    also the start of `0x4001ac4a` and the 6 bytes at `0x4001cc86` in MainScreenView's LED method;
+  switch:
+  - it takes the three sound record functions, the start of `0x4001ac4a` and the 6 bytes at `0x4001cc86` in
+    MainScreenView's LED method (and, while model27 still builds a machine's values, the knob lookup's vtable entry,
+    §10);
   - its data block after its code holds the next of each record function's chain, the descriptor table the OS uses,
-    per machine a byte of the presses it declared (bit 0 PUNCH, bit 1 GATE; eight machines at most), and per machine
-    and knob the shortcut's names, range, default and formatter;
+    and per machine a byte of the presses it declared (bit 0 PUNCH, bit 1 GATE; eight machines at most);
 - **the dispatchers** (`tools/machines/dispatch/`), when two machines take the same point:
   - `view.main`, `view.knob` and, since 0.3 of the part, `view.note` go by the selected track's machine;
   - `screen.tick` goes to every machine;
@@ -499,7 +521,7 @@ yet.
 | `device`, `os` | declared | `"Model:Cycles"`, `"1.13"` |
 | `order` | declared | the package's place among chains (today's tweak `order`); section 5.6 |
 | `build` | declared | the object's recipe (`sources`, `include`, `cflags`, `defines`); `objects`: one relocatable ELF file, the `ld -r` of the sources, committed; `symbols`: `update` and `render` (a machine); `roots`: the entry points of an extension of a stock machine or of an effect (an effect's process first, then its reset and any formatter); `keep`: the other symbols the writes need (hooks, view methods); `patch_points`: `{symbol, kind}`, an undefined symbol whose address the builder sets (kinds `machine_index`, `descriptor_base`; `fx_line` for an effect's line, its only patch point) |
-| `uses` | declared | one object per extension point, with that point's own fields; a hook as `hook: {at, stock, op, symbol}` (`op` is `jsr` or `jmp`), a vtable entry as `vtable: {at, stock_ptr, symbol}`, each with `why`. The builder checks the stock bytes against the user's file and writes the hook, or the point's dispatcher when another machine of the build takes it too (§3.3). A shortcut is `{"point": "shortcut", "key": "RETRIG", "knob": "COLOR", "param": {"long", "short", "min", "max", "default": 0, "format"}}`: names in printable ASCII, the short one of 4 characters at most; integers with min ≤ 0 ≤ max within −128…127; `format`, optional, a kept symbol of the package written like the OS's formatters (`(object + 0x14, value, buffer)`), the integer one otherwise; the machine reads the value in k 28 to 31 (`params + 0x38 + 2 · i`, i the knob's place in the list). A switch is `{"point": "shortcut", "key": "RETRIG", "press": "PUNCH"}` (or `"GATE"`): no knob, no `param`, off is 0; the machine reads it as bit 8 (PUNCH) or bit 9 (GATE) of k 32 in the sound its note plays (§2.3) and shows it, if it wants, where and when it likes. An effect is `{"point": "fx.delay", "id": 1, "process": "digi_process", "reset": "digi_reset", "line": 1048576, "params": [{"long", "short", "format"}, {…}], "name", "short"}` (or `"fx.reverb"`): its id (§5.8); its process and optional reset, both in `build.roots`; `line`, optional, the bytes of the slot's line it needs, together with the patch point `fx_line`; `params`, the slot's two parameters as the effect names them, in the slot's order (delay: Time, Fdbk; reverb: Size, Tone), the long name of 15 characters at most and the short one of 5, `format` none (the slot's stock formatter), `"int"` (0–127) or reserved for a formatter of the package; `name`, at most 15 characters, shown as the parameters' group. An effect's `uses` holds that entry and `memory.ram` claims, nothing else: no hook, no vtable entry; the builder's part takes the OS's places (§3.5) |
+| `uses` | declared | one object per extension point, with that point's own fields; a hook as `hook: {at, stock, op, symbol}` (`op` is `jsr` or `jmp`), a vtable entry as `vtable: {at, stock_ptr, symbol}`, each with `why`. The builder checks the stock bytes against the user's file and writes the hook, or the point's dispatcher when another machine of the build takes it too (§3.3). A switch is `{"point": "shortcut", "key": "MACHINES", "press": "PUNCH"}` (or `"GATE"`): off is 0; the machine reads it as bit 8 (PUNCH) or bit 9 (GATE) of k 32 in the sound its note plays (§2.3) and shows it, if it wants, where and when it likes. A `shortcut` entry with a `knob` and a `param`, a value of the machine's own on a held key + knob, was accepted up to draft 0.8 and is withdrawn (§10). An effect is `{"point": "fx.delay", "id": 1, "process": "digi_process", "reset": "digi_reset", "line": 1048576, "params": [{"long", "short", "format"}, {…}], "name", "short"}` (or `"fx.reverb"`): its id (§5.8); its process and optional reset, both in `build.roots`; `line`, optional, the bytes of the slot's line it needs, together with the patch point `fx_line`; `params`, the slot's two parameters as the effect names them, in the slot's order (delay: Time, Fdbk; reverb: Size, Tone), the long name of 15 characters at most and the short one of 5, `format` none (the slot's stock formatter), `"int"` (0–127) or reserved for a formatter of the package; `name`, at most 15 characters, shown as the parameters' group. An effect's `uses` holds that entry and `memory.ram` claims, nothing else: no hook, no vtable entry; the builder's part takes the OS's places (§3.5) |
 | `claims` | declared | `sound_slots`, `record_slots`, `saved`, `descriptors`, `formatters`, `pictures`, `plock_rows`, `midi`, `gestures`, `ram`, `views`, in the shapes of §4.5: a number or a string takes the holder's own scope (a package's machine); an object names another scope, a range, a situation, a meaning, or what a stock combination it takes did (`replaces`). Hooks are in `uses`; masks, payload and sizes are derived into the build's tweak and `REGISTRY.md`, not written in the manifest |
 | `cost` | declared, measured | section 6 |
 | `stock_behaviour` | declared | `changes`: what a stock function or gesture no longer does on this package's tracks; `fixes`: stock bugs it corrects; `unchanged`: what was proven bit for bit |
@@ -679,8 +701,11 @@ The sound holds k 0–32; the stock OS uses 0–22 (notes/47 §4.3). Assigned to
 | 25–27 | One-Shot | sample key: inode, id high, id low | in use; clashes with Model-TG (declared) |
 | 28–31 | track-filter | Cutoff, Reso, Env, Decay, through descriptors 1–4 | in use |
 | 28–32 | lfo-plus | LFO 2 | in use; clashes with track-filter (declared) |
-| 28–31 | model27's shortcut layer | the four shortcuts of the track's machine, machine-scoped (REF2: k 28, Octave); they stay when a track changes machine, and a new sound starts at 0 | in use in model27; the clashes with the track filter and with lfo-plus are computed from the claims (lfo-plus packs k 28–32 into the same record slots from inside the stock save and load, at other bytes, which no byte check sees) |
-| 32 | model27's shortcut layer (0.2) | the two switches of the track's machine: bit 8 RETRIG + PUNCH, bit 9 RETRIG + GATE, the other bits 0; machine-scoped (REF2: Square, Tone open; One-Shot's SAMPLE since 0.11: Loop, Reverse); they stay when a track changes machine | in use in model27; lfo-plus holds k 32 too and already clashes with the layer |
+| 32 | model27's shortcut layer (0.2) | the two switches of the track's machine: bit 8 MACHINES + PUNCH, bit 9 MACHINES + GATE, the other bits 0; machine-scoped (REF2: Square, Tone open; One-Shot's SAMPLE since 0.11: Loop, Reverse); they stay when a track changes machine | in use in model27; lfo-plus holds k 32 too and already clashes with the layer (lfo-plus packs k 28–32 into the same record slots from inside the stock save and load, at other bytes, which no byte check sees) |
+
+Up to draft 0.8 model27's shortcut layer also held k 28–31, machine-scoped, for the four values of the track's
+machine (REF2: k 28, Octave); withdrawn in 0.9 (§10). model27 still builds them for its reference machines until it
+follows (§9, step 9).
 
 **No k is free.** New persistent parameters need either an agreement between packages (lfo-plus could keep LFO 2 in
 memory when the filter is chosen, notes/56 §3.6) or another home in the sound; the 14 bytes after k 32 (`+86`–`+99`)
@@ -702,8 +727,9 @@ A record stores the sound's parameters as 16-bit slots at `+28 + 2 · slot`; the
 | 27 | track-filter | one of its values; clash with One-Shot hidden behind the `sound.record` conflict today |
 | 30–31 | track-filter | Cutoff, Reso (`+88`, `+90`) |
 | 30–31 | lfo-plus | LFO 2 (`+88`–`+91`, the format of DavidCaruso's firmware, notes/56) |
-| 28–31 | model27's shortcut layer | k 28–31, for every sound (`+84`–`+91`); a record from the official OS reads 0 |
 | 18 | model27's shortcut layer (0.2) | k 32, the switches, for every sound (`+64`). The stock save never writes slot 18 (its table `0x4010ee4c` maps k 18–22 to slots 19–23), and the stock load puts it on k 0 after slot 0 (`0x4010eea8`), so the stock OS ends every load with k 0 = 0; the layer's load copies slot 18 into k 32 and clears k 0 again. The official OS loads such a record with the switches on k 0 and k 32 at 0. Clashes with the track filter's slot 18 |
+
+Up to draft 0.8 the layer also wrote slots 28–31 (`+84`–`+91`) for the four values; withdrawn in 0.9 (§10).
 
 ### 5.4 Gestures
 
@@ -722,9 +748,8 @@ standard names a point for; the other stock ones are in §4.5:
 | TRIG 1–16 | chord-keys | CHORD tracks, in its Keys mode: the chords of a scale |
 | FUNC + a press on LEVEL/DATA | midi-live-both | CONFIG › MIDI › PORTS, on the OUT/THRU line |
 | LFO | lfo-plus | on the LFO page: LFO 2, 3 and 4; replaces closing the page (a hypothesis) |
-| RETRIG + COLOR/SHAPE/SWEEP/CONTOUR | the `shortcut` point (model27) | the tracks of a machine that declares the shortcut; not with FUNC, TRACK, LFO or a held trig. In the stock OS, RETRIG held changes nothing while a knob turns |
-| RETRIG + PUNCH/GATE | the `shortcut` point (model27, since 0.5) | the tracks of a machine that declares the switch; not with TRACK. In the stock OS a held RETRIG is not read on these presses, so the layer takes the press from the stock switch; their LEDs show the switches while RETRIG is held |
-| PUNCH/GATE pressed | stock switch (`0x4001ac4a`, parameters 44 and 45) | the selected track, all six with TRACK; with RETRIG held, the `shortcut` point's switches on the tracks of a machine that declares them |
+| MACHINES + PUNCH/GATE | the `shortcut` point (model27, since 0.5; RETRIG up to the layer's 0.2) | the tracks of a machine that declares the switch; not with TRACK. In the stock OS a press on PUNCH or GATE reaches MainScreenView with MACHINES held as without it, so the layer takes the press from the stock switch; their LEDs show the switches while MACHINES is held. Up to draft 0.8 the point also took a held key + COLOR/SHAPE/SWEEP/CONTOUR for a machine's values (withdrawn in 0.9, §10) |
+| PUNCH/GATE pressed | stock switch (`0x4001ac4a`, parameters 44 and 45) | the selected track, all six with TRACK; with MACHINES held, the `shortcut` point's switches on the tracks of a machine that declares them |
 | TRACK + PUNCH/GATE | stock Control All (`0x4001ac4a`) | all tracks; One-Shot's loop/reverse study would have taken it on SAMPLE tracks |
 | FUNC + TRACK | stock Track Setup menu | the `menu.track_setup` point |
 | FUNC + MACHINES | stock PRESET browser | the `browser.open` point |
@@ -1080,8 +1105,9 @@ Computed conflicts, from model27's claims (2026-10-23):
 
 REF2 exists to be copied. It is REF's contract (a triangle and noise through the stock chain) plus one entry for
 every point a machine may use today:
-- a shortcut (RETRIG + COLOR = Octave, −2 to +2);
-- two switches (RETRIG + PUNCH = Square, RETRIG + GATE = Tone open), since 0.5;
+- two switches (MACHINES + PUNCH = Square, MACHINES + GATE = Tone open), since 0.5;
+- a value, MACHINES + COLOR = Octave, −2 to +2, of the kind draft 0.9 withdraws (§10): model27 still builds it, and a
+  machine ported from this template leaves that entry out;
 - its main screen label and its knob view;
 - a mark over a held trig's note, velocity and length, since 0.7;
 - a tick that blinks the label's dot;
@@ -1089,7 +1115,7 @@ every point a machine may use today:
 
 It is never offered to users. Its manifest as model27's composer reads it, at
 [`tools/machines/refmachine2/manifest.json`](https://github.com/durchgemacht/model27/blob/main/tools/machines/refmachine2/manifest.json)
-after the note point (model27 notes/63 §22):
+after the note point (model27 notes/63 §22) and the key map of 2026-10-31 (MACHINES):
 
 ```json
 {
@@ -1097,7 +1123,7 @@ after the note point (model27 notes/63 §22):
  "id": "refmachine2",
  "version": "0.2",
  "name": "REF2 machine: model27's second reference machine, a triangle and noise through the stock chain",
- "description": "The template for a machine that uses everything the standard lets a machine use (notes/63). REF's contract with a triangle in place of REF's parabola (B4a); a shortcut, RETRIG + COLOR = Octave, -2 to +2, saved with the sound by the builder's shortcut layer (B4b); its own main screen label and knob view (B4c), a mark over a held trig's note, velocity and length (notes/63 §22), and a tick that blinks the label's dot and a browser hook that shows the name of a file opened on its track (B4d), through the builder's dispatchers when SAMPLE takes the same points; two switches, RETRIG + PUNCH = Square and RETRIG + GATE = Tone open, flipped and saved in k 32 by the shortcut layer, read in the note's sound and shown left of the label (notes/63 §16). Never offered to users.",
+ "description": "The template for a machine that uses everything the standard lets a machine use (notes/63). REF's contract with a triangle in place of REF's parabola (B4a); a shortcut, MACHINES + COLOR = Octave, -2 to +2, saved with the sound by the builder's shortcut layer (B4b); its own main screen label and knob view (B4c), a mark over a held trig's note, velocity and length (notes/63 §22), and a tick that blinks the label's dot and a browser hook that shows the name of a file opened on its track (B4d), through the builder's dispatchers when SAMPLE takes the same points; two switches, MACHINES + PUNCH = Square and MACHINES + GATE = Tone open, flipped and saved in k 32 by the shortcut layer, read in the note's sound and shown left of the label (notes/63 §16). Never offered to users.",
  "license": "MIT",
  "credit": {"kind": "own", "who": "durchgemacht and Claude", "repo": "durchgemacht/model27"},
  "device": "Model:Cycles",
@@ -1124,17 +1150,17 @@ after the note point (model27 notes/63 §22):
     {"long": "Noise", "short": "NOIS", "default": 0},
     {"long": "Detune", "short": "DTUN", "default": 64},
     {"long": "Level", "short": "LEVL", "default": 100}]},
-  {"point": "shortcut", "key": "RETRIG", "knob": "COLOR",
+  {"point": "shortcut", "key": "MACHINES", "knob": "COLOR",
    "param": {"long": "Octave", "short": "OCT", "min": -2, "max": 2, "default": 0},
    "why": "the note's octave, -2 to +2: k 28, which the voice reads at p + 0x38; the shortcut layer saves it"},
-  {"point": "shortcut", "key": "RETRIG", "press": "PUNCH",
+  {"point": "shortcut", "key": "MACHINES", "press": "PUNCH",
    "why": "Square, a switch: bit 8 of k 32, which the voice reads in the note's sound; the shortcut layer flips and saves it"},
-  {"point": "shortcut", "key": "RETRIG", "press": "GATE",
+  {"point": "shortcut", "key": "MACHINES", "press": "GATE",
    "why": "Tone open, a switch: bit 9 of k 32, which the voice reads in the note's sound; the shortcut layer flips and saves it"},
   {"point": "view.main", "vtable": {"at": "0x400ffe30", "stock_ptr": "0x4001b22a", "symbol": "ref2_main_draw"},
    "why": "MainScreenView's draw method: the stock screen, then OCT and the Octave in its free band on a REF2 track"},
   {"point": "view.knob", "vtable": {"at": "0x4010053c", "stock_ptr": "0x4001e40a", "symbol": "ref2_knob_draw"},
-   "why": "the knob view's draw method: the Octave as five boxes while RETRIG + COLOR turns it on a REF2 track"},
+   "why": "the knob view's draw method: the Octave as five boxes while MACHINES + COLOR turns it on a REF2 track"},
   {"point": "view.note", "vtable": {"at": "0x40102578", "stock_ptr": "0x400299de", "symbol": "ref2_note_draw"},
    "why": "NoteVelocityView's draw method: the held trig's note, velocity and length, then a 2 x 2 mark in the panel on a REF2 track"},
   {"point": "screen.tick", "hook": {"at": "0x400075f0", "stock": "4eb940076be4", "op": "jsr", "symbol": "ref2_hook_tick"},
@@ -1142,16 +1168,16 @@ after the note point (model27 notes/63 §22):
   {"point": "browser.open", "hook": {"at": "0x400a6602", "stock": "4eb9400a3052", "op": "jsr", "symbol": "ref2_hook_open"},
    "why": "the browser reads the file it opens: on a REF2 track the label shows its name, then the stock open reads it"}
  ],
- "claims": {"sound_slots": [28, 32], "record_slots": [18, 28], "ram": [], "gestures": [{"combo": "RETRIG + COLOR", "situation": "params", "meaning": "Octave"}, {"combo": "RETRIG + PUNCH", "meaning": "Square"}, {"combo": "RETRIG + GATE", "meaning": "Tone open"}], "views": ["main", "knob", "note"]},
+ "claims": {"sound_slots": [28, 32], "record_slots": [18, 28], "ram": [], "gestures": [{"combo": "MACHINES + COLOR", "situation": "params", "meaning": "Octave"}, {"combo": "MACHINES + PUNCH", "meaning": "Square"}, {"combo": "MACHINES + GATE", "meaning": "Tone open"}], "views": ["main", "knob", "note"]},
  "cost": {"emulation": {"status": "not measured"}, "device": {"status": "not measured"}},
- "stock_behaviour": {"changes": ["on its tracks, RETRIG held + PUNCH or GATE flips its switch instead of PUNCH or GATE, and their LEDs show its switches while RETRIG is held"], "fixes": [], "unchanged": ["other tracks and machines", "TRACK + PUNCH or GATE (Control All), with or without RETRIG"]},
+ "stock_behaviour": {"changes": ["on its tracks, MACHINES held + PUNCH or GATE flips its switch instead of PUNCH or GATE, and their LEDs show its switches while MACHINES is held"], "fixes": [], "unchanged": ["other tracks and machines", "TRACK + PUNCH or GATE (Control All), with or without MACHINES"]},
  "compat": {"built_against": ["model27"], "requires": [], "conflicts_declared": []},
  "tests": {"emulation": {"tool": "tools/emu/test_compose.py, tools/emu/test_shortcuts.py and tools/emu/test_views.py (Unicorn, the OS's own code, notes/63 §10, §11.4, §12.4, §13.4, and the switches §18.4)", "date": "2026-10-30, all three with REF2 0.2 and the dispatchers 0.3 (its mark over a held trig, notes/63 §22)", "build": "alone, as machine 6 or 7 next to sampler, and as machine 8 of sampler, refmachine, refmachine2"}, "hardware": {"date": "2026-10-26", "by": "maintainer", "build": "sampler + refmachine2 from tools/compose.py (notes/63 §20.1, .syx 8d75e346, MAIN OS 6ee148f3): \"alles wie erwartet\", the list of notes/63 §20.2 (§20.4); REF2 alone and its browser hook not run"}, "status": "experimental"}
 }
 ```
 
 **How each entry is written in its sources** (`refmachine2.c`, `ref2_view.c`, `ref2_open.S`):
-- **The voice** reads the shortcut's value in k 28, `params + 0x38`, and clamps it to the declared range.
+- **The voice** reads the Octave in k 28, `params + 0x38`, and clamps it to the declared range (the entry draft 0.9 withdraws).
 - **The switches** are read by the voice every block in the sound its note plays (§2.3): k 32 at
   `0x800017ec[t] + 84`, or at `0x800015ae + 66 · t + 64` without one; bit 8 makes the triangle a square, bit 9
   leaves the lowpass out, so a switch acts at once, even on a note already playing. The main draw shows them as
@@ -1407,6 +1433,10 @@ Pre-linked variants per slot are not needed.
 8. **Effects as packages**: the mixer's delay and reverb as slots, their lines, their cost, a first effect from
    another project. *Done in model27* (0.6, §3.5): Digital Delay, ported from PPPCCC's mods, in the web flasher and
    played on a Model:Cycles.
+9. **Withdraw a machine's values** (0.9, §10): the composer refuses a `shortcut` entry with a `knob`, in Python and in
+   the web flasher; the shortcut layer drops the knob lookup's entry and its per-knob data; REF2 and REFC lose their
+   value, and `test_shortcuts.py` its knob section; the layer's claims shrink to k 32 and record slot 18. *Not
+   started.*
 
 ## 10. Open decisions
 
@@ -1464,6 +1494,15 @@ Decided in 0.7
 Decided in 0.8 (Cycles One-Shot 0.14, its TECHNICAL.md §9 and §16):
 - a knob's picture, the `+0x60` of its interface object, is a claim of its own in the formatters' shape, and like a
   formatter it belongs to its object whatever the scopes (§2.5, §4.4, §4.5).
+
+Decided in 0.9 (2026-11-12):
+- a machine has no values of its own beyond the four stock knobs: the values of 0.3, a held key + COLOR, SHAPE, SWEEP
+  or CONTOUR in k 28–31 and the OS's descriptors 1–4, are withdrawn from the `shortcut` point. The reason: model27's
+  track effects (its filter slot, notes/72 and 73) give every track those four knobs under RETRIG, as real parameters
+  with p-locks, LFO and CC, in the same k and the same descriptors, so a build could hold a machine with values or
+  track effects, never both; the track effects win, in every build (§3.1, §4.2, §5.2 to §5.4);
+- the two switches of 0.5 stay, on MACHINES, the key of the track's machine in model27's key map of 2026-10-31
+  (§3.1, §5.4). The track effects themselves are not in this document yet.
 
 ## 11. Sources
 

@@ -1,6 +1,6 @@
 # Applying the standard to your mod — a checklist
 
-**Status:** draft 0.8, 2026-11-04, companion to [STANDARD.md](STANDARD.md). Written for the author of an existing
+**Status:** draft 0.9, 2026-11-12, companion to [STANDARD.md](STANDARD.md). Written for the author of an existing
 Model:Cycles mod and the AI assistant they work with. Sections 1 to 11 inventory a mod; section 12 ports a machine to
 model27's builder, step by step, with REF2 as the template; section 13 ports an effect, with Digital Delay as the
 template.
@@ -11,7 +11,7 @@ other mods and the registry, and a list of *deviations* from the machine contrac
 Much of the target exists:
 - [model27](https://github.com/durchgemacht/model27)'s composer reads manifests and registers added machines
   (STANDARD.md §8);
-- it adds the machine shortcuts and the dispatchers for the points SAMPLE uses (STANDARD.md §3.3);
+- it adds the machine switches and the dispatchers for the points SAMPLE uses (STANDARD.md §3.3);
 - it plays effects from packages in the mixer's delay and reverb slots, chosen per pattern (STANDARD.md §3.5);
 - its web flasher does the same in the browser;
 - its tools compute the clashes over saved slots, key combinations, descriptors, formatters, MIDI and memory from
@@ -45,8 +45,8 @@ machine onto it, follow section 12; an effect, section 13.
 - for a machine, [Cycles One-Shot](https://github.com/durchgemacht/cycles-one-shot)'s `TECHNICAL.md` §5 and §6, which
   describe the voice loop and the sound in the OS's terms;
 - for a machine, model27's packages as worked examples, `tools/machines/sampler/`, `tools/machines/refmachine/`
-  (the smallest machine) and `tools/machines/refmachine2/` (a shortcut, both views, the tick and the browser; manifest
-  in STANDARD.md §7.4), each with its manifest, sources and committed object, and its notes 59, 60 and 63;
+  (the smallest machine) and `tools/machines/refmachine2/` (two switches, both views, the tick and the browser; manifest
+  in STANDARD.md §7.4; its Octave value is withdrawn in draft 0.9, leave that entry out), each with its manifest, sources and committed object, and its notes 59, 60 and 63;
 - [STANDARD.md](STANDARD.md), sections 2 to 6;
 - your own official `model-cycles_OS1.13.syx`, if a step needs a build or an emulation run. Nothing in this
   checklist asks you to share it.
@@ -168,8 +168,8 @@ Take the inventory of section 2 and, for each item, find the row of STANDARD.md 
 | a hook on the browser's file read `0x400a6602` | `browser.open` | by machine (the track it loads into) |
 | a hook on the redraw `0x400075f0` | `screen.tick` | append (every machine) |
 | a rewritten draw entry `0x400ffe30`, `0x4010053c` or `0x40102578` | `view.main`, `view.knob`, `view.note` | by machine (the selected track) |
-| RETRIG held + COLOR, SHAPE, SWEEP or CONTOUR on your machine's tracks | `shortcut` | by machine, from the builder's list |
-| RETRIG held + a press on PUNCH or GATE on your machine's tracks (a switch) | `shortcut` | by machine, from the builder's list |
+| MACHINES held + a press on PUNCH or GATE on your machine's tracks (a switch) | `shortcut` | by machine, from the builder's list |
+| a held key + COLOR, SHAPE, SWEEP or CONTOUR on your machine's tracks (a value of its own) | none since draft 0.9: those four knobs belong to the track effects (STANDARD.md §10) | — |
 | a hook on the mixer's call of the delay `0x4005699c` or of the reverb `0x40056a2c` | `fx.delay`, `fx.reverb` | table by id: the effect slots (section 13) |
 | a hook on the delay line's write DMA `0x40056a3c`, or the stock delay's line | none: an effect gets the slot's own line (STANDARD.md §3.5) | — |
 | a key combination that picks the effect | `gesture`, owned by the effect slots (TRACK held + Delay Time / Reverb Size) | exclusive |
@@ -383,8 +383,8 @@ Start from REF2's (STANDARD.md §7.4). Then:
 - `id` is your folder's name;
 - `order` comes from the maintainer;
 - `claims` say what the machine keeps and answers beyond its writes, in the shapes of STANDARD.md §4.5, on its own
-  machine's tracks by default: a shortcut's k and record slot and its RETRIG combination in `params` (as REF2's),
-  a switch's k 32, record slot 18 and its RETRIG combination in any situation (as REF2's), the views it draws on,
+  machine's tracks by default: a switch's k 32, record slot 18 and its MACHINES combination in any situation (as
+  REF2's; not its Octave, withdrawn in draft 0.9), the views it draws on,
   and its RAM, the same ranges as its `memory.ram` entries;
 - `build` names your sources, your object, your patch points, `update`/`render`, and in `keep` every function a hook
   or vtable entry points at;
@@ -395,39 +395,24 @@ Start from REF2's (STANDARD.md §7.4). Then:
 `python3 tools/compose.py --cycles <official file> --machines <id> --compare-ld` composes your machine alone,
 identical to `ld`. Then compose it with `sampler` before and after it.
 
-### 12.4 A shortcut or a switch (optional)
+### 12.4 A switch (optional)
 
-Your machine may give its tracks up to four extra values, one per knob, on **RETRIG held + COLOR, SHAPE, SWEEP or
-CONTOUR**, and up to two switches, on **RETRIG held + a press on PUNCH or GATE** (below). No other combination is
-accepted.
-
-```json
-{"point": "shortcut", "key": "RETRIG", "knob": "COLOR",
- "param": {"long": "Octave", "short": "OCT", "min": -2, "max": 2, "default": 0}}
-```
-
-- **0 is the neutral setting**, and `default` must be 0: a new sound, a sound saved before your machine had the
-  shortcut, and a sound from the official OS all read 0. Choose the range around it.
-- **Where to read it:** COLOR's value is in k 28, SHAPE's in k 29, SWEEP's in k 30 and CONTOUR's in k 31, at
-  `params + 0x38 + 2 · i` in `update`, an 8.8 signed word. Clamp it to your range.
-- **What you do not write:** the builder's shortcut layer shows the value, saves it with the sound and loads it back.
-  Do not hook the record functions for it.
-- **What it does not do:** the value is not p-locked and is not an LFO destination. Holding FUNC, TRACK, LFO or a trig
-  turns the knob back to its own parameter.
-- **It stays when a track changes machine**, and the next machine reads it its own way.
-- **Optional `format`:** a kept function `int32_t f(void *object, int32_t value, char *buffer)` that writes at most
-  three characters. Without it the value shows as an integer.
+Your machine may give its tracks up to two switches, on **MACHINES held + a press on PUNCH or GATE**. No other
+combination is accepted. Up to draft 0.8 a machine could also take four extra values on a held key + COLOR, SHAPE,
+SWEEP or CONTOUR; they are withdrawn, those knobs belong to the track effects on every track (STANDARD.md §10). A
+machine has its four stock knobs, DECAY and the switches; what needs more than that is a second machine.
 
 **A switch** (since draft 0.5) is on or off, saved with the sound:
 
 ```json
-{"point": "shortcut", "key": "RETRIG", "press": "PUNCH"}
+{"point": "shortcut", "key": "MACHINES", "press": "PUNCH"}
 ```
 
 - **Off is 0**, the setting of a new sound, of a sound saved before, and of a sound from the official OS.
-- **On your machine's tracks** a press on PUNCH (or GATE) with RETRIG held flips your switch, and PUNCH (or GATE)
-  stays as it was. While RETRIG is held, PUNCH's and GATE's LEDs show your switches. Everywhere else, and with TRACK
-  held (Control All), the press does what it does in the stock OS. A held trig changes nothing.
+- **On your machine's tracks** a press on PUNCH (or GATE) with MACHINES held flips your switch, and PUNCH (or GATE)
+  stays as it was. While MACHINES is held, PUNCH's and GATE's LEDs show your switches, and the MACHINES list opens on
+  the key's release only when no switch acted. Everywhere else, and with TRACK held (Control All), the press does
+  what it does in the stock OS. A held trig changes nothing.
 - **Where to read it:** bit 8 (PUNCH) or bit 9 (GATE) of k 32 in the sound the note plays, not in `params`, which the
   OS smooths (STANDARD.md §2.3). As REF2's `refmachine2.c` reads it:
 
@@ -442,7 +427,7 @@ accepted.
   from the next note.
 - **What you do not write:** the shortcut layer flips the switch, lights the LEDs and saves it. Showing it on the
   screen, if you want to, is yours: REF2 draws `S` and `O` left of its label.
-- **It stays when a track changes machine**, like a value.
+- **It stays when a track changes machine.**
 
 ### 12.5 The points SAMPLE uses
 
@@ -458,7 +443,7 @@ work otherwise.
 | `view.note` | `void note_draw(void *view, void *bitmap)` at `0x40102578` | the stock `0x400299de(view, bitmap)` draws a held trig's note, velocity and length over columns 0–63, after the other two views, and nothing without a held trig; call it in every case you do not take. Leave it out (draw nothing) only while your own knob draw shows a value of yours for a held trig, as SAMPLE does, so that your view keeps the whole screen; or draw over it on your tracks, as REF2's mark does. Since draft 0.7 |
 | `screen.tick` | `uint32_t tick(void *view)`, `jsr` at `0x400075f0` | do its work quickly for every track, then return `0x40076be4(view)`; it may run from two tasks, so lock what you share; to redraw the main screen, call `0x40076082(main_view)` with the view your draw last got |
 | `browser.open` | an assembly hook, `jsr` at `0x400a6602` | keep a0 (&result), a2 (the browser's pointer) and d2–d7; take the file only on a track of your machine (the browser object's `+664`); otherwise end with `jmp 0x400a3052` |
-| `sound.record` | an "around" wrapper over the first 8 bytes of `0x4005afa0`, `0x4005b054`, `0x4005aecc` (One-Shot's `hooks.S`) | replay the 8 bytes, run the body, call your `after` function, keep `d0`, act only on sounds of your machine and only when the function returned 1. Only one machine may have one; use a shortcut where you can |
+| `sound.record` | an "around" wrapper over the first 8 bytes of `0x4005afa0`, `0x4005b054`, `0x4005aecc` (One-Shot's `hooks.S`) | replay the 8 bytes, run the body, call your `after` function, keep `d0`, act only on sounds of your machine and only when the function returned 1. Only one machine may have one; use a switch where an on/off setting is enough |
 
 How to find the selected track's sound and machine is in REF2's `ref2_view.c`: `ref2_sound_of`, `selected_track`. Use
 the same: the dispatchers find the machine the same way.
@@ -467,7 +452,7 @@ the same: the dispatchers find the machine the same way.
 
 Copy the tests and point them at your machine:
 - `tools/emu/test_compose.py`, the registration and the voice loop;
-- `tools/emu/test_shortcuts.py`, if you declared a shortcut or a switch;
+- `tools/emu/test_shortcuts.py`, if you declared a switch;
 - `tools/emu/test_views.py`, if you take a view, the tick or the browser.
 
 They run the OS's own code in Unicorn. Then:
@@ -477,7 +462,7 @@ They run the OS's own code in Unicorn. Then:
 
 ### 12.7 Not allowed
 
-- a shortcut outside the list, two shortcuts on one knob, or a default other than 0;
+- a value of your own on a held key + knob (a `shortcut` entry with a `knob`; withdrawn in draft 0.9);
 - a switch outside the list, the same press twice, or a switch read at `params + 0x40` (it glides there);
 - a sound slot or record slot of your own (k 23–32 and the record slots are taken: STANDARD.md §5.2, §5.3);
 - a hook on the knob lookup `0x401005a8`, on `0x4001ac4a` or `0x4001cc86` (the shortcut layer's), or on the record
@@ -493,14 +478,14 @@ Read STANDARD.md (sections 2, 3, 4 and 7.4) and APPLYING.md section 12 from <pat
 tools/machines/refmachine2/ (manifest.json, refmachine2.c, ref2_view.c, ref2_open.S) in <path to model27>.
 
 Port the machine in <path to its sources> to a package in model27's tools/machines/<id>/, following APPLYING.md
-section 12 step by step: the object (12.1), the voice (12.2), the manifest (12.3), a shortcut or a switch only if the
-machine needs an extra value or an on/off setting (12.4), and only the points of 12.5 the machine already uses, each
+section 12 step by step: the object (12.1), the voice (12.2), the manifest (12.3), a switch only if the
+machine needs an on/off setting (12.4), and only the points of 12.5 the machine already uses, each
 method checking its own
 track; declare its claims as STANDARD.md §4.5 shapes them. Write the generator and the proofs by copying model27's
 for REF2. Run every check named in section 12 and
 report each result; where one fails, stop and say why.
 
-Do not invent shortcuts, sound or record slots, points or dispatchers. Do not change model27's composer, its parts or
+Do not invent switches, values of the machine's own, sound or record slots, points or dispatchers. Do not change model27's composer, its parts or
 SAMPLE. Do not mark anything tested: the maintainer tests on the device.
 ```
 

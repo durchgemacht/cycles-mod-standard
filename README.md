@@ -1,10 +1,10 @@
 # Cycles Mod Standard
 
-**Draft 0.8.** This page says what the idea is, first in plain words, then with a bit more technical
+**Draft 0.9.** This page says what the idea is, first in plain words, then with a bit more technical
 detail. The full text with every address, rule and source is in [STANDARD.md](STANDARD.md). Much of it is built:
 [model27](https://github.com/durchgemacht/model27) composes added machines from manifests, tested on a Model:Cycles,
-and lets them share the screen, the browser and saved sounds and use a fixed list of shortcuts and switches, proven
-in an emulator. Since draft 0.6 it composes effects too: a package that plays in the delay or the reverb slot, chosen
+and lets them share the screen, the browser and saved sounds and give their tracks two switches, MACHINES + PUNCH
+and MACHINES + GATE, proven in an emulator. Since draft 0.6 it composes effects too: a package that plays in the delay or the reverb slot, chosen
 per pattern, tested on a Model:Cycles with the first one, Digital Delay.
 Its tools also compute which mods clash over a saved slot, a key combination or a display, from what each mod
 declares (see [Status and next steps](#status-and-next-steps)). To port a machine, follow [APPLYING.md](APPLYING.md)
@@ -149,7 +149,7 @@ detours such a place itself; it registers a callback in its manifest and the bui
 | `screen.tick` | the screen's redraw, about 30 times a second | **append**: every machine | One-Shot (loads samples in the background), REF2 |
 | `view.main`, `view.knob` | the main screen and the knob value screen, the knob value screen also with a trig held (since 0.7) | **by machine**: the selected track's machine draws, or the stock screen | One-Shot, REF2 |
 | `view.note` | a held trig's note, velocity and length over the left half of the screen (since 0.7) | **by machine**, as the other views; a machine may keep the whole screen for its own view of a held trig's value | One-Shot (0.12), REF2 |
-| `shortcut` | RETRIG held + COLOR, SHAPE, SWEEP or CONTOUR on a machine's tracks, and RETRIG held + a press on PUNCH or GATE (since 0.5) | **by machine**, from a fixed list: up to four extra values and two on/off switches per machine, saved with the sound; while RETRIG is held, PUNCH's and GATE's LEDs show the switches | REF2 (Octave; Square, Tone open) |
+| `shortcut` | MACHINES held + a press on PUNCH or GATE on a machine's tracks (since 0.5) | **by machine**, from a fixed list: two on/off switches per machine, saved with the sound; while MACHINES is held, PUNCH's and GATE's LEDs show the switches. Up to draft 0.8 a machine could also take four extra values on a held key + COLOR, SHAPE, SWEEP or CONTOUR; withdrawn in 0.9, see below | SAMPLE (Loop, Reverse), REF2 (Square, Tone open) |
 | `fx.delay`, `fx.reverb` | the mixer's delay and reverb | **table by id**: the stock effect, then the build's effects; the playing pattern chooses one, with TRACK held + Delay Time or Reverb Size; each slot has a line of its own for its effects | Digital Delay; model27's two reference effects |
 | `menu.track_setup` | the FUNC + TRACK menu | **append** | nobody yet (read for One-Shot's loop/reverse study) |
 | `gesture` | a key combination and its meaning | **exclusive** per combination, situation and scope; computed in model27 | track filter, Model-TG, MACRO, Control All Config, arp, and more (STANDARD.md §5.4); stock |
@@ -270,13 +270,19 @@ claims. Still to come: cards generated from manifests.
 - **the claims:** what each mod takes beyond its bytes (saved slots, key combinations, descriptors, formatters, MIDI
   numbers, memory, displays), declared in one shape and checked. The tools compute the clashes from them, the
   registry lists them, and the web flasher explains a computed clash in English and French;
-- **two switches** (2026-10-26): RETRIG + PUNCH and RETRIG + GATE, each on or off and saved with the sound, on the
-  tracks of a machine that wants them; REF2 uses them for Square and Tone open. This is proven in the emulator and
-  played on a Model:Cycles (2026-10-26);
+- **two switches** (2026-10-26): MACHINES + PUNCH and MACHINES + GATE (RETRIG until model27's key map of
+  2026-10-31), each on or off and saved with the sound, on the tracks of a machine that wants them; SAMPLE uses them
+  for Loop and Reverse, REF2 for Square and Tone open. This is proven in the emulator and played on a Model:Cycles;
 - **the effect slots** (2026-10-27): the mixer's delay and reverb take effects from packages, chosen per pattern with
   TRACK held + Delay Time or Reverb Size, each slot with a line of its own and a counted cost. The first effect,
   Digital Delay, is PPPCCC's digital delay ported to a package, its sound theirs bit for bit; it is offered in
   model27's web flasher and played on a Model:Cycles from it, alone and next to SAMPLE.
+
+**Withdrawn** in draft 0.9 (2026-11-12): the four extra values a machine could give its tracks on a held key + COLOR,
+SHAPE, SWEEP or CONTOUR. model27's track effects give every track those four knobs under RETRIG, in the same saved
+slots and the same parameter descriptors, so a build could hold a machine with values or track effects, never both.
+The track effects win: a machine has the four stock knobs and the two switches. model27 still builds the values for
+its reference machines until its composer refuses them (STANDARD.md §9, step 9).
 
 The technical record is in model27's notes
 [59](https://github.com/durchgemacht/model27/blob/main/notes/59-level-b-builder.md),
@@ -314,7 +320,8 @@ Decided in 0.6: the delay and the reverb are two slots, one effect each at a tim
 slot has its own line; effect ids are fixed; an effect's cost is checked per slot. Decided in 0.7: a machine's knob
 view may draw with a trig held, and the held trig's note, velocity and length are a view point of their own, so that
 a machine's view of a held trig's value can keep the whole screen. Decided in 0.8: the picture a knob shows for its
-value is a claim of its own, like its formatter.
+value is a claim of its own, like its formatter. Decided in 0.9: a machine has no extra values of its own, the four
+knobs under a held key belong to the track effects; the two switches stay, on MACHINES.
 
 ## Read more
 
